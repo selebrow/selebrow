@@ -12,7 +12,52 @@ env:
 permissions: {}
 
 jobs:
-  release:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Create Draft Release
+        run: gh release create ${GITHUB_REF_NAME} --generate-notes --draft
+
+  release-binary:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    strategy:
+      matrix:
+        os: [darwin, windows, linux]
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build Binary
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} make build
+          gh release upload ${GITHUB_REF_NAME} bin/selebrow-${{ matrix.os }}-${{ matrix.arch }}#selebrow-${{ matrix.os }}-${{ matrix.arch }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: bin/selebrow-*
+
+  release-docker:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,27 +69,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Create Draft Release
-        run: gh release create ${GITHUB_REF_NAME} --generate-notes --draft
-
       - name: Install Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
 
-      - name: Build Binaries
-        strategy:
-          matrix:
-            os: [darwin, windows, linux]
-            arch: [amd64, arm64]
-        run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} make build
-          gh release upload ${GITHUB_REF_NAME} bin/selebrow-${{ matrix.os }}-${{ matrix.arch }}#selebrow-${{ matrix.os }}-${{ matrix.arch }}
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          path: bin/selebrow-*
+      - name: Build Binary
+        run: GOOS=linux GOARCH=amd64 make build
 
       - name: Log in to the Container registry
         if: steps.check-base-update.outcome == 'success'
