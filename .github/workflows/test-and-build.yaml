@@ -108,10 +108,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate Image Tag
+        id: gen-tag
+        run: echo "IMAGE_TAG=$(./scripts/slug.sh "$GITHUB_REF_NAME"-"$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+
       - name: Build Image
         uses: docker/build-push-action@v6
         with:
           push: true
           context: .
           file: ./Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$(./scripts/slug.sh ${GITHUB_REF_NAME}-${GITHUB_SHA})
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.gen-tag.outputs.IMAGE_TAG }}
