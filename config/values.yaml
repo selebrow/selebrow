@@ -1,0 +1,29 @@
+# Image pull secrets for the Pod
+imagePullSecrets: []
+# - name: registry-cred
+
+browser:
+  # additional environment variables for browser container
+  env: {}
+    # LANG: ru_RU.UTF-8
+    # LANGUAGE: ru:en
+    # TZ: Europe/Moscow
+
+# Pod annotations
+annotations: {}
+
+# static Pod labels
+labels:
+  app.kubernetes.io/created-by: selebrow
+
+# Search domains list
+searches: []
+
+# Custom Kubernetes scheduler to use (leave empty for default scheduler)
+scheduler: ""
+
+# Priority class to set on the Pod (leave empty for default priority)
+priorityClassName: ""
+
+# Image pull policy (leave empty to apply default policy, see https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting)
+imagePullPolicy: ""

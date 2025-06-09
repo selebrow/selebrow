@@ -1,0 +1,24 @@
+with-expecter: True
+packages:
+    net/http:
+      interfaces:
+        RoundTripper:
+    hash:
+      interfaces:
+        Hash:
+    golang.org/x/net/proxy:
+      interfaces:
+        ContextDialer:
+    github.com/labstack/echo/v4:
+      interfaces:
+        Renderer:
+    github.com/selebrow/selebrow:
+      config:
+        recursive: True
+        all: True
+filename: "{{.InterfaceName}}.go"
+dir: "mocks"
+mockname: "{{.InterfaceName}}"
+outpkg: "mocks"
+resolve-type-alias: False
+issue-845-fix: True

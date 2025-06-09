@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>VNC {{ .ID }}</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="/static/css/pico.min.css">
+    <style>
+        body {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        html {
+            height: 100%;
+        }
+
+        #status {
+            padding: 0.2rem;
+            text-align: center;
+        }
+
+        #screen {
+            padding: 0.2rem;
+            flex: 1;
+            overflow: hidden;
+        }
+    </style>
+    <script type="module" crossorigin="anonymous">
+        import RFB from '/static/js/core/rfb.js';
+
+        let rfb;
+        let desktopName;
+
+        // When this function is called we have
+        // successfully connected to a server
+        function connectedToServer(e) {
+            status("Connected to " + desktopName);
+        }
+
+        // This function is called when we are disconnected
+        function disconnectedFromServer(e) {
+            if (e.detail.clean) {
+                status("Disconnected");
+            } else {
+                status("Something went wrong, connection is closed");
+            }
+        }
+
+        // When this function is called, the server requires
+        // credentials to authenticate
+        function credentialsAreRequired(e) {
+            rfb.sendCredentials({ password: {{ .Password }} });
+        }
+
+        // When this function is called we have received
+        // a desktop name from the server
+        function updateDesktopName(e) {
+            desktopName = e.detail.name;
+        }
+
+        // Show a status text in the top bar
+        function status(text) {
+            document.getElementById('status').textContent = text;
+        }
+
+        status("Connecting");
+
+        // Creating a new RFB object will start a new connection
+        rfb = new RFB(document.getElementById('screen'), {{ .URL }},
+                      { credentials: { password: {{ .Password }} } });
+
+        // Add listeners to important events from the RFB module
+        rfb.addEventListener("connect",  connectedToServer);
+        rfb.addEventListener("disconnect", disconnectedFromServer);
+        rfb.addEventListener("credentialsrequired", credentialsAreRequired);
+        rfb.addEventListener("desktopname", updateDesktopName);
+
+        // Set parameters that can be changed on an active connection
+        rfb.viewOnly = false;
+        rfb.scaleViewport = true;
+    </script>
+</head>
+<body>
+    <header id="status" class="container-fluid">
+        Loading
+    </header>
+    <main id="screen" class="container-fluid">
+    </main>
+</body>
+</html>

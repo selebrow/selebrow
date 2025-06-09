@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: browser-
+{{- with (mergeOverwrite .Values.labels .Options.Labels) }}
+  labels:
+{{- range $k,$v := . }}
+    {{ $k }}: {{ quote $v }}
+{{- end }}
+{{- end }}
+{{- with .Values.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+{{- with .Values.scheduler }}
+  schedulerName: {{ . }}
+{{- end }}
+  containers:
+  - name: browser
+    image: {{ .Browser.Image }}
+{{- if hasKey .Browser.Ports "browser" }}
+{{- with .Browser.Cmd }}
+    command:
+{{ toYaml . | indent 6 }}
+{{- end }}
+{{- end }}
+{{- with .Values.imagePullPolicy }}
+    imagePullPolicy: {{ . }}
+{{- end }}
+    env:
+{{- range $k,$v := mergeOverwrite .Browser.Env .Options.Env .Values.browser.env }}
+    - name: {{ $k }}
+      value: {{ quote $v }}
+{{- end }}
+    ports:
+{{- range $k,$v := .Browser.Ports }}
+    - containerPort: {{ $v }}
+      name: {{ quote $k }}
+      protocol: TCP
+{{- end }}
+{{- with .Browser.Limits }}
+    resources:
+      limits:
+{{ toYaml . | indent 8 }}
+      requests:
+{{ toYaml . | indent 8 }}
+{{- end }}
+    volumeMounts:
+    - mountPath: /tmp
+      name: tmp
+  dnsConfig:
+    options:
+    - name: ndots
+      value: "2"
+{{- with .Options.Hosts }}
+  hostAliases:
+{{- range $k,$v := . }}
+  - ip: {{ quote $k }}
+    hostnames:
+{{- range $host := $v }}
+    - {{ quote $host }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- with .Values.searches }}
+    searches:
+{{- toYaml . | indent 4 }}
+{{- end }}
+  volumes:
+  - emptyDir: {}
+    name: tmp
+{{- with .Values.imagePullSecrets }}
+  imagePullSecrets:
+{{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.priorityClassName }}
+  PriorityClassName: {{ . }}
+{{- end }}
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 0
