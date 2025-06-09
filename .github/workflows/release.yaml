@@ -48,8 +48,12 @@ jobs:
           go-version: '1.23'
 
       - name: Build Binary
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} make build
+          make build
           gh release upload ${GITHUB_REF_NAME} bin/selebrow-${{ matrix.os }}-${{ matrix.arch }}#selebrow-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: Upload Artifacts
@@ -76,7 +80,11 @@ jobs:
           go-version: '1.23'
 
       - name: Build Binary
-        run: GOOS=linux GOARCH=amd64 make build
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: make build
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
