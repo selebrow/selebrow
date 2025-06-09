@@ -1,0 +1,10 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "selebrow.fullname" . }}
+  labels:
+    {{- include "selebrow.labels" . | nindent 4 }}
+data:
+  values.yaml: |
+{{ toYaml .Values.templateValues | indent 4 }}

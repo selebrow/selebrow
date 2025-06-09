@@ -1,0 +1,36 @@
+# Binaries for programs and plugins
+bin/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+/coverage.xml
+
+# Dependency directories (remove the comment below to include it)
+/vendor
+/report.txt
+/report.xml
+
+# Other
+.env
+*.DS_Store
+values-local.yaml
+/config/browsers.yaml
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### VS Code ###
+.vscode
+
+### profile output ###
+cpu.pprof
+mem.pprof
+
+### logs
+*.log

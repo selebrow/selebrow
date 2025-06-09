@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Selebrow</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="/static/css/pico.min.css">
+</head>
+<body>
+    <header class="container-fluid">
+        <!-- <h2>Selebrow dashboard</h2> -->
+        <nav>
+            <ul>
+                <li><strong>Selebrow dashboard</strong></li>
+            </ul>
+            <ul>
+                <li><a href="{{ .WDLink }}">Webdriver</a></li>
+                <li><a href="{{ .PWLink }}">Playwright</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <div class="grid">
+            <div>
+                <article align="center">
+                    <header>Webdriver</header>
+                   {{ if .WDCount }} <a href="{{ .WDLink }}">{{ .WDCount }} active session{{ plural "" "s" .WDCount }}</a>{{ else }}no active session{{ plural "" "s" .WDCount }}{{ end }}
+                </article>
+            </div>
+            <div>
+                <article align="center">
+                    <header>Playwright</header>
+                    {{ if .PWCount }}<a href="{{ .PWLink }}">{{ .PWCount }} active session{{ plural "" "s" .PWCount }}</a>{{ else }}no active session{{ plural "" "s" .PWCount }}{{ end }}
+                </article>
+            </div>
+            {{- with .Quota }}
+            <div>
+                <article align="center">
+                    <header>Quota usage</header>
+                     {{ .Allocated }}&nbsp;/&nbsp{{ .Limit }}
+                </article>
+            </div>
+            {{- with .Queue }}
+            <div>
+                <article align="center">
+                    <header>Waiting queue</header>
+                     {{ .Size }}&nbsp;/&nbsp{{ .Limit }}
+                </article>
+            </div>
+            {{- end }}
+            {{- end }}
+        </div>
+    </main>
+</body>
+</html>

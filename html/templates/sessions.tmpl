@@ -1,0 +1,64 @@
+{{- $isWD := eq .Protocol "webdriver" }}
+{{- $proto := title .Protocol }}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ $proto }} sessions - Selebrow</title>
+    <link rel="stylesheet" href="/static/css/pico.min.css">
+    <meta charset="utf-8">
+    <style>
+        :root {
+            --pico-form-element-spacing-vertical: 0.2rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="container-fluid">
+        <nav>
+            <ul>
+                <li><strong>{{ $proto }} sessions</strong></li>
+            </ul>
+            <ul>
+                <li><a href="{{ .Root }}">Main page</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main class="container-fluid">
+        <table>
+            <thead>
+                <tr>
+                    <th>Session ID</th>
+                    <th>Created</th>
+                    <th>Browser</th>
+                    {{ if $isWD }}<th>Test name</th>{{ end }}
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {{- range $s := .Sessions }}
+            {{- with $s }}
+                <tr>
+                    <td>{{ .ID }}</td>
+                    <td>{{ .CreatedAt }}</td>
+                    <td>{{ .Browser}}&nbsp;{{ if .BrowserVersion }}{{ .BrowserVersion }}{{ else }}latest{{ end }}</td>
+                    {{ if $isWD }}<td>{{ .Name }}</td>{{ end }}
+                    <td>
+                        <div role="group">
+                            {{ if .VNC }}<a target="_blank" href="{{ .VNCLink }}" role="button">VNC</a>{{ end }}
+                            <a href="{{ .ResetLink }}" role="button" class="secondary">Reset</a>
+                        </div>
+                    </td>
+                </tr>
+              {{- end }}
+            {{- end }}
+            </tbody>
+            <tfoot>
+                <tr>
+                    {{ $len := len .Sessions }}
+                    <td colspan="{{ if $isWD }}5{{ else }}4{{ end }}" style="text-align: center;">{{ if $len }}Showing {{ $len }} active {{ $proto }} session{{else}}No active {{ $proto }} session{{end}}{{ plural "" "s" $len }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </main>
+</body>
+</html>
