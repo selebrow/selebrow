@@ -25,6 +25,8 @@ jobs:
 
       - name: Create Draft Release
         run: gh release create ${GITHUB_REF_NAME} --generate-notes --draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-binary:
     runs-on: ubuntu-latest
@@ -52,6 +54,7 @@ jobs:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           make build
           gh release upload ${GITHUB_REF_NAME} bin/selebrow-${{ matrix.os }}-${{ matrix.arch }}#selebrow-${{ matrix.os }}-${{ matrix.arch }}
