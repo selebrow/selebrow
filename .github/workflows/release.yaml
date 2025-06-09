@@ -55,6 +55,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
+          name: selebrow-${{ matrix.os }}-${{ matrix.arch }}
           path: bin/selebrow-*
 
   release-docker:
