@@ -101,11 +101,10 @@ jobs:
         run: GOOS=linux GOARCH=amd64 make build
 
       - name: Log in to the Container registry
-        if: steps.check-base-update.outcome == 'success'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.repository_owner }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate Image Tag
