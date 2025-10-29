@@ -8,7 +8,7 @@ image:
   # -- Image pull policy (leave empty to apply default policy, see https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting)
   pullPolicy: ""
   # -- Overrides the image tag, whose default is the chart appVersion.
-  tag: "latest"
+  tag: ""
 
 # -- Image pull secrets
 imagePullSecrets: []

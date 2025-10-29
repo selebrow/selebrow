@@ -34,3 +34,6 @@ mem.pprof
 
 ### logs
 *.log
+
+### Packages helm charts
+/charts/*.tgz
