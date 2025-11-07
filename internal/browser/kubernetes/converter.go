@@ -10,6 +10,7 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	core "k8s.io/api/core/v1"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
@@ -35,6 +36,7 @@ type (
 		vals          map[string]interface{}
 		ciEnvironment ciContext
 		lineage       string
+		logger        *zap.SugaredLogger
 	}
 
 	templateContext struct {
@@ -68,7 +70,12 @@ type (
 	}
 )
 
-func NewTemplatedBrowserConverter(cfg BrowserConverterConfig, tpl string, values []byte) (*TemplatedBrowserConverter, error) {
+func NewTemplatedBrowserConverter(
+	cfg BrowserConverterConfig,
+	tpl string,
+	values []byte,
+	logger *zap.Logger,
+) (*TemplatedBrowserConverter, error) {
 	vals := make(map[string]interface{})
 	if len(values) > 0 {
 		err := yaml.Unmarshal(values, &vals)
@@ -94,6 +101,7 @@ func NewTemplatedBrowserConverter(cfg BrowserConverterConfig, tpl string, values
 			ProjectName:      cfg.ProjectName(),
 		},
 		lineage: cfg.Lineage(),
+		logger:  logger.Sugar(),
 	}, nil
 }
 
@@ -105,12 +113,14 @@ func (t *TemplatedBrowserConverter) ToPod(cfg models.BrowserImageConfig, caps ca
 
 	var sb strings.Builder
 	if err := t.tmpl.Execute(&sb, tplCtx); err != nil {
-		return core.Pod{}, err
+		return core.Pod{}, errors.Wrap(err, "failed to render template")
 	}
 
 	var pod core.Pod
 	if err := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(sb.String()), 200).Decode(&pod); err != nil {
-		return core.Pod{}, err
+		const msg = "failed to deserialize rendered manifest into pod"
+		t.logger.Debugw(msg, "manifest", sb.String())
+		return core.Pod{}, errors.Wrap(err, msg)
 	}
 	// Set mandatory labels, everything else is up to template
 	if pod.Labels == nil {

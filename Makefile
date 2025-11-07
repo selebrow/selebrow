@@ -37,7 +37,7 @@ ldflags=-s -w -X main.GitRef=$(GitRef) -X main.GitSha=$(GitSha) -X github.com/se
 
 default:
 
-.PHONY: fmt vet build docker-build lint lint-fix test test-report coverage helm-docs
+.PHONY: fmt vet build docker-build lint lint-fix test test-report coverage helm-docs helm-lint
 
 fmt:
 	go fmt ./...
@@ -74,6 +74,9 @@ mocks: mockery
 
 helm-docs: install-helm-docs
 	$(HELM_DOCS)
+
+helm-lint:
+	helm lint charts/*/
 
 # find or download golangci-lint
 # download golangci-lint if necessary

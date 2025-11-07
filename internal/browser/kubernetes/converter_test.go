@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zaptest"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -103,7 +104,7 @@ func TestTemplatedBrowserConverter_ToPod(t *testing.T) {
 		},
 	}
 
-	cnv, err := NewTemplatedBrowserConverter(cfg, tpl1, []byte(values1))
+	cnv, err := NewTemplatedBrowserConverter(cfg, tpl1, []byte(values1), zaptest.NewLogger(t))
 	g.Expect(err).ToNot(HaveOccurred())
 
 	pod, err := cnv.ToPod(vers, caps)
@@ -202,7 +203,7 @@ func TestTemplatedBrowserConverter_ToPod_BadVersion(t *testing.T) {
 	caps.EXPECT().GetVersion().Return("455").Once()
 	caps.EXPECT().IsVNCEnabled().Return(false).Once()
 
-	cnv, err := NewTemplatedBrowserConverter(cfg, tpl1, []byte(values1))
+	cnv, err := NewTemplatedBrowserConverter(cfg, tpl1, []byte(values1), zaptest.NewLogger(t))
 	g.Expect(err).ToNot(HaveOccurred())
 
 	vers := models.BrowserImageConfig{

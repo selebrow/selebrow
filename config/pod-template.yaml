@@ -9,8 +9,7 @@ metadata:
 {{- end }}
 {{- end }}
 {{- with .Values.annotations }}
-  annotations:
-{{ toYaml . | indent 4 }}
+  annotations: {{ toYaml . | nindent 4 }}
 {{- end }}
 spec:
 {{- with .Values.scheduler }}
@@ -21,8 +20,7 @@ spec:
     image: {{ .Browser.Image }}
 {{- if hasKey .Browser.Ports "browser" }}
 {{- with .Browser.Cmd }}
-    command:
-{{ toYaml . | indent 6 }}
+    command: {{ toYaml . | nindent 4 }}
 {{- end }}
 {{- end }}
 {{- with .Values.imagePullPolicy }}
@@ -41,10 +39,8 @@ spec:
 {{- end }}
 {{- with .Browser.Limits }}
     resources:
-      limits:
-{{ toYaml . | indent 8 }}
-      requests:
-{{ toYaml . | indent 8 }}
+      limits: {{ toYaml . | nindent 8 }}
+      requests: {{ toYaml . | nindent 8 }}
 {{- end }}
     volumeMounts:
     - mountPath: /tmp
@@ -64,18 +60,25 @@ spec:
 {{- end }}
 {{- end }}
 {{- with .Values.searches }}
-    searches:
-{{- toYaml . | indent 4 }}
+    searches: {{ toYaml . | nindent 4 }}
 {{- end }}
   volumes:
   - emptyDir: {}
     name: tmp
 {{- with .Values.imagePullSecrets }}
-  imagePullSecrets:
-{{- toYaml . | nindent 2 }}
+  imagePullSecrets: {{ toYaml . | nindent 2 }}
 {{- end }}
 {{- with .Values.priorityClassName }}
-  PriorityClassName: {{ . }}
+  priorityClassName: {{ . }}
+{{- end }}
+{{- with .Values.nodeSelector }}
+  nodeSelector: {{ toYaml . | nindent 4 }}
+{{- end }}
+{{- with .Values.affinity }}
+  affinity: {{ toYaml . | nindent 4 }}
+{{- end }}
+{{- with .Values.tolerations }}
+  tolerations: {{ toYaml . | nindent 4 }}
 {{- end }}
   automountServiceAccountToken: false
   terminationGracePeriodSeconds: 0

@@ -54,12 +54,17 @@ func initKubernetesWebDriverManager(
 	cat browsers.BrowsersCatalog,
 	sig *signal.Handler,
 ) *kubernetes.KubernetesBrowserManager {
-	bc, err := kubernetes.NewTemplatedBrowserConverter(cfg, templatesData[podTemplateFile], []byte(templatesData[valuesFile]))
+	l := log.GetLogger().Named("k8s")
+	bc, err := kubernetes.NewTemplatedBrowserConverter(
+		cfg,
+		templatesData[podTemplateFile],
+		[]byte(templatesData[valuesFile]),
+		l.Named("converter"),
+	)
 	if err != nil {
 		InitLog.Fatalw("failed to initialize Browser to Pod converter", zap.Error(err))
 	}
 
-	l := log.GetLogger().Named("k8s")
 	watcher, err := kubernetes.NewPodWatcher(client, cfg.Lineage(), l.Named("watcher"))
 	if err != nil {
 		InitLog.Fatalw("failed to initialize Pod watcher", zap.Error(err))

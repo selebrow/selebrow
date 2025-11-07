@@ -8,3 +8,7 @@ metadata:
 data:
   values.yaml: |
 {{ toYaml .Values.templateValues | indent 4 }}
+{{- with .Values.browserTemplate }}
+  pod-template.yaml: |
+{{ . | indent 4 }}
+{{- end }}

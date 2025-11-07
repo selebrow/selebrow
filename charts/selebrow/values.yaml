@@ -135,41 +135,57 @@ selebrow:
     # @section -- Selebrow service settings
     limit: 0
 
+# -- Template to be used for browser pods instead of default template, prebuilt into Selebrow image
+# @section -- Browser template and values
+browserTemplate: ""
+
 templateValues:
   # -- Image pull secrets for the Pod
-  # @section -- Browser template values
+  # @section -- Browser template and values
   imagePullSecrets: []
   # - name: registry-cred
 
   browser:
     # -- Additional environment variables for browser container
-    # @section -- Browser template values
+    # @section -- Browser template and values
     env: {}
       # LANG: ru_RU.UTF-8
       # LANGUAGE: ru:en
       # TZ: Europe/Moscow
 
   # -- Pod annotations
-  # @section -- Browser template values
+  # @section -- Browser template and values
   annotations: {}
 
   # -- Static Pod labels
-  # @section -- Browser template values
+  # @section -- Browser template and values
   labels:
     app.kubernetes.io/created-by: selebrow
 
   # -- Search domains list
-  # @section -- Browser template values
+  # @section -- Browser template and values
   searches: []
 
   # -- Custom Kubernetes scheduler to use (leave empty for default scheduler)
-  # @section -- Browser template values
+  # @section -- Browser template and values
   scheduler: ""
 
   # -- Priority class to set on the Pod (leave empty for default priority)
-  # @section -- Browser template values
+  # @section -- Browser template and values
   priorityClassName: ""
 
   # -- Image pull policy (leave empty to apply default policy, see https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting)
-  # @section -- Browser template values
+  # @section -- Browser template and values
   imagePullPolicy: ""
+
+  # -- Node selector for browser pods
+  # @section -- Browser template and values
+  nodeSelector: {}
+
+  # -- Tolerations for browser pods
+  # @section -- Browser template and values
+  tolerations: []
+
+  # -- Browser pods affinity
+  # @section -- Browser template and values
+  affinity: {}

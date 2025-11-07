@@ -15,6 +15,7 @@ spec:
     metadata:
       annotations:
         checksum/values: {{ toYaml .Values.templateValues | sha256sum }}
+        checksum/template: {{ toYaml .Values.browserTemplate | sha256sum }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -77,6 +78,11 @@ spec:
             - name: config
               mountPath: /config/values.yaml
               subPath: values.yaml
+          {{- with .Values.browserTemplate }}
+            - name: config
+              mountPath: /config/pod-template.yaml
+              subPath: pod-template.yaml
+          {{- end }}
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -85,7 +91,7 @@ spec:
           configMap:
             name: {{ include "selebrow.fullname" . }}
       {{- with .Values.volumes }}
-        {{- toYaml  | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
