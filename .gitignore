@@ -18,6 +18,7 @@ bin/
 *.DS_Store
 values-local.yaml
 /config/browsers.yaml
+/charts/selebrow/values-test.yaml
 
 ### IntelliJ IDEA ###
 .idea/

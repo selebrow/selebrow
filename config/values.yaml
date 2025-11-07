@@ -27,3 +27,12 @@ priorityClassName: ""
 
 # Image pull policy (leave empty to apply default policy, see https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting)
 imagePullPolicy: ""
+
+# Node selector for browser pods
+nodeSelector: {}
+
+# Tolerations for browser pods
+tolerations: []
+
+# Browser pods affinity
+affinity: {}

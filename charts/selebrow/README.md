@@ -12,6 +12,23 @@ A Helm chart for standalone Selebrow deployment in Kubernetes
 
 ## Values
 
+### Browser template and values
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| browserTemplate | string | `""` | Template to be used for browser pods instead of default template, prebuilt into Selebrow image |
+| templateValues.affinity | object | `{}` | Browser pods affinity |
+| templateValues.annotations | object | `{}` | Pod annotations |
+| templateValues.browser.env | object | `{}` | Additional environment variables for browser container |
+| templateValues.imagePullPolicy | string | `""` | Image pull policy (leave empty to apply default policy, see https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting) |
+| templateValues.imagePullSecrets | list | `[]` | Image pull secrets for the Pod |
+| templateValues.labels | object | `{"app.kubernetes.io/created-by":"selebrow"}` | Static Pod labels |
+| templateValues.nodeSelector | object | `{}` | Node selector for browser pods |
+| templateValues.priorityClassName | string | `""` | Priority class to set on the Pod (leave empty for default priority) |
+| templateValues.scheduler | string | `""` | Custom Kubernetes scheduler to use (leave empty for default scheduler) |
+| templateValues.searches | list | `[]` | Search domains list |
+| templateValues.tolerations | list | `[]` | Tolerations for browser pods |
+
 ### Selebrow service settings
 
 | Key | Type | Default | Description |
@@ -19,19 +36,6 @@ A Helm chart for standalone Selebrow deployment in Kubernetes
 | selebrow.browserUri | string | `""` | Browsers catalog URI, leave empty to use fallback (remote) browsers URI |
 | selebrow.namespace | string | `""` | namespace to create browser Pods, leave empty to match Selebrow deployment namespace) |
 | selebrow.quota.limit | int | `0` | Browsers quota limit, set to positive value to limit number of concurrently running browsers |
-
-### Browser template values
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| templateValues.annotations | object | `{}` | Pod annotations |
-| templateValues.browser.env | object | `{}` | Additional environment variables for browser container |
-| templateValues.imagePullPolicy | string | `""` | Image pull policy (leave empty to apply default policy, see https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting) |
-| templateValues.imagePullSecrets | list | `[]` | Image pull secrets for the Pod |
-| templateValues.labels | object | `{"app.kubernetes.io/created-by":"selebrow"}` | Static Pod labels |
-| templateValues.priorityClassName | string | `""` | Priority class to set on the Pod (leave empty for default priority) |
-| templateValues.scheduler | string | `""` | Custom Kubernetes scheduler to use (leave empty for default scheduler) |
-| templateValues.searches | list | `[]` | Search domains list |
 
 ### Other Values
 
@@ -42,7 +46,7 @@ A Helm chart for standalone Selebrow deployment in Kubernetes
 | fullnameOverride | string | `""` | Overrides full application name used in service/deployment and other Kubernetes resources' names |
 | image.pullPolicy | string | `""` | Image pull policy (leave empty to apply default policy, see https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting) |
 | image.repository | string | `"ghcr.io/selebrow/selebrow"` | Repository image path without the tag |
-| image.tag | string | `"latest"` | Overrides the image tag, whose default is the chart appVersion. |
+| image.tag | string | `""` | Overrides the image tag, whose default is the chart appVersion. |
 | imagePullSecrets | list | `[]` | Image pull secrets |
 | ingress.annotations | object | `{"nginx.ingress.kubernetes.io/proxy-read-timeout":"300"}` | Ingress [annotations](https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md) |
 | ingress.className | string | `""` | Ingress [class](https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class) |
