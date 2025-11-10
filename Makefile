@@ -25,12 +25,11 @@ else
 BIN_SUFFIX?=
 endif
 
+GitSha=$(shell git rev-parse --short HEAD)
 ifndef CI
 GitRef=$(shell git rev-parse --abbrev-ref HEAD)
-GitSha=$(shell git rev-parse --short HEAD)
 else
-GitRef=${CI_COMMIT_REF_NAME}
-GitSha=${CI_COMMIT_SHORT_SHA}
+GitRef=${GITHUB_REF_NAME}
 endif
 
 ldflags=-s -w -X main.GitRef=$(GitRef) -X main.GitSha=$(GitSha) -X github.com/selebrow/selebrow/pkg/config.DefaultFallbackBrowsersURI=$(FALLBACK_BROWSERS_URI)
