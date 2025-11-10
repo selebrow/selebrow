@@ -77,7 +77,7 @@ jobs:
       contents: write
     steps:
       - name: Publish
-        run: gh release edit ${GITHUB_REF_NAME} --draft=false
+        run: gh release edit ${GITHUB_REF_NAME} --draft=false --latest
 
   release-docker:
     runs-on: ubuntu-latest
