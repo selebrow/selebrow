@@ -78,6 +78,8 @@ jobs:
     steps:
       - name: Publish
         run: gh release edit ${GITHUB_REF_NAME} --draft=false --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-docker:
     runs-on: ubuntu-latest
