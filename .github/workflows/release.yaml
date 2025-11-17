@@ -72,7 +72,7 @@ jobs:
 
   publish-release:
     runs-on: ubuntu-latest
-    needs: [release-binary]
+    needs: release-binary
     permissions:
       contents: write
     steps:
@@ -89,6 +89,7 @@ jobs:
 
   release-docker:
     runs-on: ubuntu-latest
+    needs: release-binary
     permissions:
       contents: write
       packages: write
@@ -99,17 +100,18 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Install Go
-        uses: actions/setup-go@v5
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
         with:
-          go-version: '1.23'
+          pattern: selebrow-linux-*
+          path: ${{ github.workspace }}/bin
+          merge-multiple: true
 
-      - name: Build Binary
-        env:
-          CGO_ENABLED: "0"
-          GOOS: linux
-          GOARCH: amd64
-        run: make build
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -125,9 +127,11 @@ jobs:
           context: .
           file: ./Dockerfile
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          platforms: linux/amd64,linux/arm64
 
   release-helm-chart:
     runs-on: ubuntu-latest
+    needs: release-docker
     permissions:
       contents: read
       packages: write
