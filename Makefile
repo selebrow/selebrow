@@ -47,9 +47,9 @@ vet:
 build:
 	go build -trimpath -ldflags "$(ldflags)" -o ./bin/$(BIN_NAME)-$(GOOS)-$(GOARCH)$(BIN_SUFFIX) ./cmd/$(BUILD_TARGET)
 
-docker-build:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(ldflags)" -o ./bin/$(BIN_NAME)-linux-amd64 ./cmd/$(BUILD_TARGET)
-	docker build --pull -t $(REGISTRY_IMAGE):$(TAG) .
+docker-build: GOOS=linux
+docker-build: build
+	docker build --pull --platform $(GOOS)/$(GOARCH) -t $(REGISTRY_IMAGE):$(TAG) .
 
 lint: golangci-lint
 	${GOLANGCI-LINT} run --timeout=5m ./... -v

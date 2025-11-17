@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
@@ -72,7 +73,7 @@ func Run(gitRef, gitSha, appName string) {
 	l := InitLogger()
 	mainLog := l.Sugar().Named("app")
 	appVersion := fmt.Sprintf("%s-%s", gitRef, gitSha)
-	mainLog.Infof("starting %s build %s", appName, appVersion)
+	mainLog.Infof("starting %s build %s (%s/%s)", appName, appVersion, runtime.GOOS, runtime.GOARCH)
 
 	cfg := InitConfig()
 	dialer := InitDialer(cfg)
