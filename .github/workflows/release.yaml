@@ -30,6 +30,7 @@ jobs:
 
   release-binary:
     runs-on: ubuntu-latest
+    needs: create-release
     permissions:
       contents: write
       packages: write
@@ -161,3 +162,62 @@ jobs:
       - name: Publish chart to GHCR
         run: |
           helm push ./charts/selebrow-*.tgz oci://ghcr.io/${GITHUB_REPOSITORY_OWNER}/helm-charts
+
+  release-homebrew-tap:
+    runs-on: ubuntu-latest
+    needs: release-binary
+    permissions:
+      contents: read
+    env:
+      TAP_REPO: homebrew-tap
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout homebrew-tap repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          repository: selebrow/homebrew-tap
+          path: ${{ env.TAP_REPO }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Update homebrew formula
+        env:
+          TEMPLATE_PATH: .github/templates/selebrow.rb
+          FORMULA_PATH: Formula/selebrow.rb
+          OUTPUT_PATH: selebrow.rb
+          BRANCH: ${{ github.ref_name }}-release
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TITLE: Update formula version to ${{ github.ref_name }}
+        run: |          
+          ./.github/scripts/brew-formula.sh "${TEMPLATE_PATH}" "${GITHUB_REF_NAME}" >"${OUTPUT_PATH}"
+                    
+          if diff "${TAP_REPO}/${FORMULA_PATH}" "${OUTPUT_PATH}"; then
+            echo Formula has not changed
+            exit 0
+          fi
+          
+          cp "${OUTPUT_PATH}" "${TAP_REPO}/${FORMULA_PATH}"
+          cd "${TAP_REPO}"
+
+          GH_USER_ID=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)
+          git config user.name "${{ steps.app-token.outputs.app-slug }}[bot]"
+          git config user.email "${GH_USER_ID}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
+
+          git checkout -b "${BRANCH}"
+          git add "${FORMULA_PATH}"
+          git commit -m "${TITLE}"
+          git push -u origin "${BRANCH}"
+          gh pr create -f

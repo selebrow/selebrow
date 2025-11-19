@@ -136,7 +136,7 @@ jobs:
 
       - name: Generate Image Tag
         id: gen-tag
-        run: echo "IMAGE_TAG=$(./scripts/slug.sh "$GITHUB_REF_NAME"-"$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+        run: echo "IMAGE_TAG=$(./.github/scripts/slug.sh "$GITHUB_REF_NAME"-"$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
 
       - name: Build Image
         uses: docker/build-push-action@v6
