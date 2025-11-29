@@ -68,7 +68,7 @@ type sessionItem struct {
 
 type vncData struct {
 	ID       string
-	URL      string
+	URLPath  string
 	Password string
 }
 
@@ -163,14 +163,9 @@ func (u *UIController) vnc(c echo.Context, protocol models.BrowserProtocol, root
 		return models.NewBadRequestError(errors.New("VNC was not enabled for this session"))
 	}
 
-	vncURL := url.URL{
-		Scheme: "ws",
-		Host:   c.Request().Host,
-		Path:   path.Join(root, id),
-	}
 	data := &vncData{
 		ID:       id,
-		URL:      vncURL.String(),
+		URLPath:  path.Join(root, id),
 		Password: u.vncPassword,
 	}
 	return c.Render(http.StatusOK, "vnc.tmpl", data)

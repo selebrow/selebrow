@@ -185,7 +185,7 @@ func TestUIController_WDVNC(t *testing.T) {
 	sess := createTestSession("123", true)
 	wdSvc.EXPECT().FindSession("123").Return(sess, nil).Once()
 
-	expData := &vncData{ID: "123", URL: "ws://example.com/vnc/123", Password: "qwerty"}
+	expData := &vncData{ID: "123", URLPath: "/vnc/123", Password: "qwerty"}
 	r.EXPECT().Render(mock.Anything, "vnc.tmpl", expData, c).Return(nil).Once()
 
 	err := ui.WDVNC(c)
@@ -255,7 +255,7 @@ func TestUIController_PWVNC(t *testing.T) {
 	sess := createTestSession("123", true)
 	pwSvc.EXPECT().FindSession("123").Return(sess, nil).Once()
 
-	expData := &vncData{ID: "123", URL: "ws://example.com/pw/vnc/123", Password: "qwerty"}
+	expData := &vncData{ID: "123", URLPath: "/pw/vnc/123", Password: "qwerty"}
 	r.EXPECT().Render(mock.Anything, "vnc.tmpl", expData, c).Return(nil).Once()
 
 	err := ui.PWVNC(c)
