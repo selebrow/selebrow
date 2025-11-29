@@ -65,8 +65,11 @@
 
         status("Connecting");
 
+        const url = new URL({{ .URLPath }}, window.location.origin);
+        url.protocol = url.protocol === 'https:' ? 'wss' : 'ws';
+
         // Creating a new RFB object will start a new connection
-        rfb = new RFB(document.getElementById('screen'), {{ .URL }},
+        rfb = new RFB(document.getElementById('screen'), url.href,
                       { credentials: { password: {{ .Password }} } });
 
         // Add listeners to important events from the RFB module
