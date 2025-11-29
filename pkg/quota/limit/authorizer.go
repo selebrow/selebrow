@@ -79,7 +79,7 @@ func (q *LimitQuotaAuthorizer) Reserve(ctx context.Context) error {
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				return models.NewQuoteExceededError(errors.Wrap(ctx.Err(), q.formatError("quota wait failed")))
 			} else {
-				return errors.Wrapf(ctx.Err(), q.formatError("quota wait cancelled"))
+				return errors.Wrap(ctx.Err(), q.formatError("quota wait cancelled"))
 			}
 		}
 	case <-ch:
