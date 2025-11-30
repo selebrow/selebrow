@@ -8,7 +8,7 @@ REGISTRY_IMAGE?=selebrow
 BIN_NAME?=selebrow
 BUILD_TARGET=selebrow
 REF=$$(git symbolic-ref --short HEAD)
-TAG=$$(echo ${REF} | sed 's/^master$$/latest/' | sed 's/^feature\///')
+TAG=$$(./.github/scripts/slug.sh ${REF})
 
 GOPATH?=$(shell go env GOPATH)
 GOARCH?=$(shell go env GOARCH)
