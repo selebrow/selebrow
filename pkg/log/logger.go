@@ -89,14 +89,6 @@ func NewConsoleLogger() *zap.Logger {
 }
 
 func getLogLevel() zapcore.Level {
-	switch strings.ToUpper(os.Getenv(fmt.Sprintf("%s_LOG_LEVEL", config.ConfigPrefix))) {
-	case "DEBUG":
-		return zap.DebugLevel
-	case "WARN":
-		return zap.WarnLevel
-	case "ERROR":
-		return zap.ErrorLevel
-	default:
-		return zap.InfoLevel
-	}
+	strLevel := os.Getenv(fmt.Sprintf("%s_LOG_LEVEL", config.ConfigPrefix))
+	return config.ZapLogLevel(strLevel, zap.InfoLevel)
 }

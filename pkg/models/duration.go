@@ -3,33 +3,21 @@ package models
 import (
 	"encoding/json"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
-type Duration time.Duration
-
-func (d Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(time.Duration(d).String())
+type Duration struct {
+	time.Duration
 }
 
-func (d *Duration) UnmarshalJSON(b []byte) error {
-	var v interface{}
-	if err := json.Unmarshal(b, &v); err != nil {
+func (d *Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
+}
+
+func (d *Duration) UnmarshalText(text []byte) error {
+	tmp, err := time.ParseDuration(string(text))
+	if err != nil {
 		return err
 	}
-	switch value := v.(type) {
-	case float64:
-		*d = Duration(time.Duration(value))
-		return nil
-	case string:
-		tmp, err := time.ParseDuration(value)
-		if err != nil {
-			return err
-		}
-		*d = Duration(tmp)
-		return nil
-	default:
-		return errors.New("invalid duration")
-	}
+	d.Duration = tmp
+	return nil
 }

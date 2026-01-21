@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.uber.org/zap/zapcore"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -96,8 +97,16 @@ func TestConfigViper(t *testing.T) {
 	v.Set("docker-port-mapping", "enabled")
 	v.Set("docker-pull-images", "true")
 	v.Set("docker-platform", "cp/m")
+	v.Set("docker-env", []string{"a=1", "__b", "__c__"})
 
 	v.Set("vnc-password", "12345")
+
+	v.Set(proxyEnabled, true)
+	v.Set(proxyListen, ":8088")
+	v.Set(proxyAccessLogLevel, "inFO")
+	v.Set(proxyConnectTimeout, 5*time.Second)
+	v.Set(proxyResolveHost, true)
+	v.Set(noProxy, "127.0.0.1")
 
 	t.Setenv("CI_JOB_ID", "321")
 	t.Setenv("CI_PROJECT_NAMESPACE", "test")
@@ -106,6 +115,7 @@ func TestConfigViper(t *testing.T) {
 	t.Setenv("SB_CONFIG_NAME", "config")
 	t.Setenv("SB_POOL_MAX_IDLE", "55")
 	t.Setenv("SB_KUBE_TEMPLATES_PATH", "qqq/")
+	t.Setenv("__b", "2")
 
 	cfg, err := NewConfig(v, f)
 	g.Expect(err).ToNot(HaveOccurred())
@@ -139,7 +149,69 @@ func TestConfigViper(t *testing.T) {
 	g.Expect(cfg.DockerPrivileged()).To(BeTrue())
 	g.Expect(cfg.DockerPullImages()).To(BeTrue())
 	g.Expect(cfg.DockerPlatform()).To(Equal("cp/m"))
+	g.Expect(cfg.DockerEnv()).To(Equal(map[string]string{"a": "1", "__b": "2"}))
 
 	g.Expect(cfg.UI()).To(BeTrue())
 	g.Expect(cfg.VNCPassword()).To(Equal("12345"))
+
+	g.Expect(cfg.ProxyEnabled()).To(BeTrue())
+	g.Expect(cfg.ProxyListen()).To(Equal(":8088"))
+	g.Expect(cfg.ProxyAccessLogLevel()).To(Equal(zapcore.InfoLevel))
+	g.Expect(cfg.ProxyConnectTimeout()).To(Equal(5 * time.Second))
+	g.Expect(cfg.ProxyResolveHost()).To(BeTrue())
+	g.Expect(cfg.ProxyOpts(func() string { return "test" })).To(Equal(&ProxyOpts{
+		ProxyHost: "test:8088",
+		NoProxy:   "127.0.0.1",
+	}))
+}
+
+func TestConfigViper_ProxyOpts_Negative(t *testing.T) {
+	tests := []struct {
+		name    string
+		values  map[string]any
+		hostFn  ProxyHostFunc
+		wantErr bool
+	}{
+		{
+			name:    "no proxy enabled",
+			values:  map[string]any{proxyEnabled: false, proxyHost: ""},
+			wantErr: false,
+		},
+		{
+			name:    "proxy fn returns empty",
+			values:  map[string]any{proxyEnabled: true, proxyHost: ""},
+			hostFn:  func() string { return "" },
+			wantErr: true,
+		},
+		{
+			name:    "no proxy port",
+			values:  map[string]any{proxyEnabled: true, proxyHost: "", proxyListen: "qqqq"},
+			hostFn:  func() string { return "test" },
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			v := viper.New()
+
+			v.Set("backend", "auto")
+			v.Set("docker-port-mapping", "enabled")
+			for k, vv := range tt.values {
+				v.Set(k, vv)
+			}
+
+			f := pflag.NewFlagSet("test", pflag.ContinueOnError)
+			cfg, err := NewConfig(v, f)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			opts, err := cfg.ProxyOpts(tt.hostFn)
+			if tt.wantErr {
+				g.Expect(err).To(HaveOccurred())
+			} else {
+				g.Expect(err).ToNot(HaveOccurred())
+			}
+			g.Expect(opts).To(BeNil())
+		})
+	}
 }

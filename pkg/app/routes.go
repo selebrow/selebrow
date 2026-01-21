@@ -265,8 +265,13 @@ func initConfigController(browsersConfig []byte) *controllers.ConfigController {
 	return controllers.NewConfigController(map[string]string{browsersFile: string(browsersConfig)})
 }
 
-func initWDSessionController(svc session.SessionService, eb event.EventBroker, cLog *zap.Logger) *controllers.WDSessionController {
-	return controllers.NewWDSessionController(svc, eb, time.Now, cLog.Named("wdsession"))
+func initWDSessionController(
+	svc session.SessionService,
+	eb event.EventBroker,
+	proxyOpts *config.ProxyOpts,
+	cLog *zap.Logger,
+) *controllers.WDSessionController {
+	return controllers.NewWDSessionController(svc, eb, time.Now, proxyOpts, cLog.Named("wdsession"))
 }
 
 func initProxyController(transport http.RoundTripper, p ws.WSProxy, cLog *zap.Logger) *controllers.ProxyController {
@@ -294,7 +299,8 @@ func initPlayWrightController(
 	svc session.SessionService,
 	transport http.RoundTripper,
 	eb event.EventBroker,
+	proxyOpts *config.ProxyOpts,
 	cLog *zap.Logger,
 ) *controllers.PWController {
-	return controllers.NewPWController(svc, transport, eb, time.Now, cLog.Named("playwright"))
+	return controllers.NewPWController(svc, transport, eb, time.Now, proxyOpts, cLog.Named("playwright"))
 }

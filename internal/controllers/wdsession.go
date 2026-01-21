@@ -14,6 +14,7 @@ import (
 	"github.com/selebrow/selebrow/internal/router"
 	"github.com/selebrow/selebrow/internal/services/session"
 	"github.com/selebrow/selebrow/pkg/capabilities"
+	"github.com/selebrow/selebrow/pkg/config"
 	"github.com/selebrow/selebrow/pkg/dto"
 	"github.com/selebrow/selebrow/pkg/event"
 	evmodels "github.com/selebrow/selebrow/pkg/event/models"
@@ -23,18 +24,30 @@ import (
 const SessionKey = "session"
 
 type WDSessionController struct {
-	srv session.SessionService
-	eb  event.EventBroker
-	now clock.NowFunc
-	l   *zap.SugaredLogger
+	srv   session.SessionService
+	eb    event.EventBroker
+	now   clock.NowFunc
+	proxy *models.ProxyOptions
+	l     *zap.SugaredLogger
 }
 
-func NewWDSessionController(srv session.SessionService, eb event.EventBroker, now clock.NowFunc, l *zap.Logger) *WDSessionController {
+func NewWDSessionController(
+	srv session.SessionService,
+	eb event.EventBroker,
+	now clock.NowFunc,
+	proxyOpts *config.ProxyOpts,
+	l *zap.Logger,
+) *WDSessionController {
+	var proxy *models.ProxyOptions
+	if proxyOpts != nil {
+		proxy = models.NewHTTPProxy(proxyOpts.ProxyHost, proxyOpts.NoProxy)
+	}
 	return &WDSessionController{
-		srv: srv,
-		eb:  eb,
-		now: now,
-		l:   l.Sugar(),
+		srv:   srv,
+		eb:    eb,
+		now:   now,
+		proxy: proxy,
+		l:     l.Sugar(),
 	}
 }
 
@@ -52,7 +65,7 @@ func (s *WDSessionController) CreateSession(ctx echo.Context) error {
 		s.eb.Publish(evmodels.NewSessionRequestedEvent(ev))
 	}()
 
-	caps, err := capabilities.NewCapabilities(ctx.Request().Body)
+	caps, err := capabilities.NewCapabilities(ctx.Request().Body, s.proxy)
 	if err != nil {
 		ev.Error = models.BadWDSessionParameters(err)
 		return ev.Error

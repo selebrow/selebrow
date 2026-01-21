@@ -9,6 +9,7 @@ import (
 
 	"github.com/selebrow/selebrow/internal/browser/pool"
 	"github.com/selebrow/selebrow/mocks"
+	"github.com/selebrow/selebrow/pkg/capabilities"
 	"github.com/selebrow/selebrow/pkg/models"
 )
 
@@ -20,8 +21,9 @@ func TestBrowserPoolManager_Allocate(t *testing.T) {
 	caps := new(mocks.Capabilities)
 	caps.EXPECT().GetName().Return("mosaic")
 
-	gh := new(mocks.GetHashFunc)
-	gh.EXPECT().Execute(caps).Return([]byte{0xde, 0xad})
+	gh := func(caps capabilities.Capabilities) []byte {
+		return []byte{0xde, 0xad}
+	}
 
 	br1 := new(mocks.Browser)
 	br2 := new(mocks.Browser)
@@ -30,7 +32,7 @@ func TestBrowserPoolManager_Allocate(t *testing.T) {
 
 	f := new(mocks.BrowserPoolFactory)
 
-	pm := pool.NewBrowserPoolManager(f, gh.Execute)
+	pm := pool.NewBrowserPoolManager(f, gh)
 
 	f.EXPECT().GetPool("test-mosaic-dead").Return(p).Once()
 	p.EXPECT().Checkout(context.TODO(), testBrowserProtocol, caps).Return(br1, nil).Once()

@@ -1,7 +1,8 @@
-package docker_test
+package docker
 
 import (
 	"context"
+	"runtime"
 	"testing"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap/zaptest"
 
-	"github.com/selebrow/selebrow/internal/browser/docker"
 	"github.com/selebrow/selebrow/mocks"
 	"github.com/selebrow/selebrow/pkg/models"
 )
@@ -47,13 +47,13 @@ func (fakeNotFound) Error() string { return "error fake not found" }
 func TestKubernetesBrowserManager_NewDockerBrowserManager(t *testing.T) {
 	tests := []struct {
 		name       string
-		opts       docker.DockerBrowserManagerOpts
+		opts       DockerBrowserManagerOpts
 		setupMocks func(cat *mocks.BrowsersCatalog, client *mocks.DockerClient)
 		wantErr    bool
 	}{
 		{
 			name: "pullImages",
-			opts: docker.DockerBrowserManagerOpts{
+			opts: DockerBrowserManagerOpts{
 				Network:    testNet,
 				PullImages: true,
 			},
@@ -66,7 +66,7 @@ func TestKubernetesBrowserManager_NewDockerBrowserManager(t *testing.T) {
 		},
 		{
 			name: "pullImages inspect error",
-			opts: docker.DockerBrowserManagerOpts{
+			opts: DockerBrowserManagerOpts{
 				PullImages: true,
 			},
 			setupMocks: func(cat *mocks.BrowsersCatalog, client *mocks.DockerClient) {
@@ -77,7 +77,7 @@ func TestKubernetesBrowserManager_NewDockerBrowserManager(t *testing.T) {
 		},
 		{
 			name: "pullImages pull error",
-			opts: docker.DockerBrowserManagerOpts{
+			opts: DockerBrowserManagerOpts{
 				PullImages: true,
 			},
 			setupMocks: func(cat *mocks.BrowsersCatalog, client *mocks.DockerClient) {
@@ -88,14 +88,14 @@ func TestKubernetesBrowserManager_NewDockerBrowserManager(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "detectNetwork LocalIPs error",
-			opts: docker.DockerBrowserManagerOpts{
+			name: "detectNetwork localIPs error",
+			opts: DockerBrowserManagerOpts{
 				Network:    "",
 				MapPorts:   false,
 				PullImages: false,
 			},
 			setupMocks: func(cat *mocks.BrowsersCatalog, client *mocks.DockerClient) {
-				docker.LocalIPs = func() ([]string, error) {
+				localIPs = func() ([]string, error) {
 					return nil, testError
 				}
 			},
@@ -103,26 +103,26 @@ func TestKubernetesBrowserManager_NewDockerBrowserManager(t *testing.T) {
 		},
 		{
 			name: "detectNetwork container list error",
-			opts: docker.DockerBrowserManagerOpts{
+			opts: DockerBrowserManagerOpts{
 				Network:    "",
 				MapPorts:   false,
 				PullImages: false,
 			},
 			setupMocks: func(cat *mocks.BrowsersCatalog, client *mocks.DockerClient) {
-				docker.LocalIPs = localIPsMock
+				localIPs = localIPsMock
 				client.EXPECT().ContainerList(context.Background()).Return(nil, testError).Once()
 			},
 			wantErr: true,
 		},
 		{
 			name: "detectNetwork no container matching IPs",
-			opts: docker.DockerBrowserManagerOpts{
+			opts: DockerBrowserManagerOpts{
 				Network:    "",
 				MapPorts:   false,
 				PullImages: false,
 			},
 			setupMocks: func(cat *mocks.BrowsersCatalog, client *mocks.DockerClient) {
-				docker.LocalIPs = localIPsMock
+				localIPs = localIPsMock
 				client.EXPECT().ContainerList(context.Background()).Return([]container.Summary{}, nil).Once()
 			},
 			wantErr: true,
@@ -132,11 +132,12 @@ func TestKubernetesBrowserManager_NewDockerBrowserManager(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
+			ownNetwork = ""
 			cat := new(mocks.BrowsersCatalog)
 			client := new(mocks.DockerClient)
 
 			tt.setupMocks(cat, client)
-			m, err := docker.NewDockerBrowserManager(client, cat, tt.opts, zaptest.NewLogger(t))
+			m, err := NewDockerBrowserManager(client, cat, tt.opts, zaptest.NewLogger(t))
 			if tt.wantErr {
 				g.Expect(err).To(HaveOccurred())
 			} else {
@@ -150,7 +151,7 @@ func TestKubernetesBrowserManager_NewDockerBrowserManager(t *testing.T) {
 }
 
 var (
-	testEnv      = []string{"a=b", "b=c=d"}
+	testEnv      = []string{"a=bb", "c=d=f"}
 	testLabels   = map[string]string{"k1": "v1", "k2": "v2"}
 	testHosts    = []string{"aaa:1.2.3.4", "bbb:1.2.3.4"}
 	testLinks    = []string{"cont1:domain.ltd"}
@@ -168,7 +169,7 @@ var (
 			models.VNCPort:       444,
 		},
 		Path: "/wd",
-		Env:  map[string]string{"a": "b", "b": "c"},
+		Env:  map[string]string{"a": "b", "b": "c", "d": "e"},
 		Limits: map[string]string{
 			"cpu":    "1",
 			"memory": "100500Gi",
@@ -182,7 +183,7 @@ var (
 	expConfig = &container.Config{
 		Cmd:          []string{"run"},
 		ExposedPorts: nat.PortSet{"123/tcp": struct{}{}, "777/tcp": struct{}{}},
-		Env:          []string{"ENABLE_VNC=false", "SCREEN_RESOLUTION=640x480x0", "a=b", "b=c=d"},
+		Env:          []string{"ENABLE_VNC=false", "SCREEN_RESOLUTION=640x480x0", "a=bb", "b=c", "c=d=f", "d=g", "e=f"},
 		Image:        "apple/safari:test-1",
 		Labels:       map[string]string{"main": "val", "k1": "v1", "k2": "v2"},
 	}
@@ -273,11 +274,12 @@ func TestKubernetesBrowserManager_Allocate_PortMap_Mode(t *testing.T) {
 	client := new(mocks.DockerClient)
 
 	client.EXPECT().GetHost().Return(testHost).Once()
-	mgr, err := docker.NewDockerBrowserManager(client, cat, docker.DockerBrowserManagerOpts{
+	mgr, err := NewDockerBrowserManager(client, cat, DockerBrowserManagerOpts{
 		Network:    testNet,
 		MapPorts:   true,
 		Privileged: true,
 		PullImages: false,
+		Env:        map[string]string{"d": "g", "e": "f"},
 	}, zaptest.NewLogger(t))
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -337,14 +339,16 @@ func TestKubernetesBrowserManager_Allocate_DirectConnection(t *testing.T) {
 	cat := new(mocks.BrowsersCatalog)
 	client := new(mocks.DockerClient)
 
-	docker.LocalIPs = localIPsMock
+	localIPs = localIPsMock
+	ownNetwork = ""
 
 	client.EXPECT().ContainerList(context.Background()).Return(testContainers, nil)
-	mgr, err := docker.NewDockerBrowserManager(client, cat, docker.DockerBrowserManagerOpts{
+	mgr, err := NewDockerBrowserManager(client, cat, DockerBrowserManagerOpts{
 		Network:    "", // should trigger network autodetect
 		MapPorts:   false,
 		Privileged: true,
 		PullImages: false,
+		Env:        map[string]string{"d": "g", "e": "f"},
 	}, zaptest.NewLogger(t))
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -601,7 +605,7 @@ func TestKubernetesBrowserManager_Allocate_Negative(t *testing.T) {
 			client := new(mocks.DockerClient)
 
 			client.EXPECT().GetHost().Return(testHost).Once()
-			mgr, err := docker.NewDockerBrowserManager(client, cat, docker.DockerBrowserManagerOpts{
+			mgr, err := NewDockerBrowserManager(client, cat, DockerBrowserManagerOpts{
 				Network:    testNet,
 				MapPorts:   true,
 				Privileged: true,
@@ -623,6 +627,40 @@ func TestKubernetesBrowserManager_Allocate_Negative(t *testing.T) {
 	}
 }
 
+func TestDockerProxyHost_Host(t *testing.T) {
+	g := NewWithT(t)
+	inDocker = func() bool { return false }
+	got := DockerProxyHost(nil, zaptest.NewLogger(t))
+	g.Expect(got).To(Equal("host.docker.internal"))
+}
+
+func TestDockerProxyHost_InDocker(t *testing.T) {
+	g := NewWithT(t)
+	inDocker = func() bool { return true }
+	ownNetwork = ""
+	client := new(mocks.DockerClient)
+	localIPs = localIPsMock
+	client.EXPECT().ContainerList(context.Background()).Return(testContainers, nil).Once()
+
+	got := DockerProxyHost(client, zaptest.NewLogger(t))
+	g.Expect(got).To(Equal("4.3.2.1"))
+
+	// test cached network/ip
+	got = DockerProxyHost(client, zaptest.NewLogger(t))
+	g.Expect(got).To(Equal("4.3.2.1"))
+}
+
+func TestDockerProxyHost_InDocker_Fail(t *testing.T) {
+	g := NewWithT(t)
+	inDocker = func() bool { return true }
+	ownNetwork = ""
+	client := new(mocks.DockerClient)
+	client.EXPECT().ContainerList(context.Background()).Return(nil, errors.New("test")).Once()
+
+	got := DockerProxyHost(client, zaptest.NewLogger(t))
+	g.Expect(got).To(BeEmpty())
+}
+
 func createCaps(name, version, flavor string, vncEnabled bool) *mocks.Capabilities {
 	caps := new(mocks.Capabilities)
 	caps.EXPECT().GetName().Return(name)
@@ -639,12 +677,17 @@ func createCaps(name, version, flavor string, vncEnabled bool) *mocks.Capabiliti
 }
 
 func getExpHostConfig(portBindings nat.PortMap) *container.HostConfig {
+	hosts := []string{"aaa:1.2.3.4", "bbb:1.2.3.4"}
+	if runtime.GOOS == "linux" {
+		// this will happen on CI
+		hosts = append([]string{"host.docker.internal:host-gateway"}, hosts...)
+	}
 	return &container.HostConfig{
 		RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyDisabled},
 		Binds:         []string{"/src:/build"},
 		NetworkMode:   "test-net",
 		PortBindings:  portBindings,
-		ExtraHosts:    []string{"aaa:1.2.3.4", "bbb:1.2.3.4"},
+		ExtraHosts:    hosts,
 		Links:         []string{"cont1:domain.ltd"},
 		Privileged:    true,
 		ShmSize:       10000,

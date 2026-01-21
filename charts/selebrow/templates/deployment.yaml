@@ -48,6 +48,11 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
+          {{- if .Values.selebrow.proxy.enabled}}
+            - name: proxy
+              containerPort: {{ .Values.selebrow.proxy.port }}
+              protocol: TCP
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /status
@@ -63,14 +68,38 @@ spec:
             - name: SB_BROWSERS_URI
               value: {{ . | quote }}
           {{- end }}
+          {{- with .Values.selebrow.logLevel}}
+            - name: SB_LOG_LEVEL
+              value: {{ . | quote }}
+          {{- end }}
           {{- with .Values.selebrow.quota.limit }}
             - name: SB_QUOTA_LIMIT
               value: {{ . | quote }}
           {{- end }}
+          {{- if .Values.selebrow.proxy.enabled }}
+            - name: SB_PROXY_ENABLED
+              value: "true"
+            - name: SB_PROXY_LISTEN
+              value: ":{{ .Values.selebrow.proxy.port }}"
+            - name: SB_PROXY_ACCESS_LOG_LEVEL
+              value: {{ .Values.selebrow.proxy.logLevel | quote }}
+          {{- if not .Values.selebrow.proxy.host }}
+            - name: SB_PROXY_HOST
+              value: "{{ include "selebrow.fullname" . }}-proxy.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.selebrow.proxy.port }}"
+          {{- end }}
+          {{- end }}
+          {{- with .Values.selebrow.proxy.host }}
+            - name: SB_PROXY_HOST
+              value: {{ . | quote }}
+          {{- end }}
+          {{- with .Values.selebrow.proxy.noProxy }}
+            - name: SB_NO_PROXY
+              value: {{ . | quote }}
+          {{- end }}
+          {{- with .Values.resources }}
           {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}

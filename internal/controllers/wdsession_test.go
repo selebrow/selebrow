@@ -21,12 +21,14 @@ import (
 	"github.com/selebrow/selebrow/internal/services/session"
 	"github.com/selebrow/selebrow/mocks"
 	"github.com/selebrow/selebrow/pkg/capabilities"
+	"github.com/selebrow/selebrow/pkg/config"
 	"github.com/selebrow/selebrow/pkg/dto"
 	evmodels "github.com/selebrow/selebrow/pkg/event/models"
 	"github.com/selebrow/selebrow/pkg/models"
 )
 
-var caps1 = `
+const (
+	caps1 = `
 {
   "capabilities": {
     "alwaysMatch": {
@@ -38,14 +40,36 @@ var caps1 = `
     "firstMatch": [ {} ]
   }
 }`
+	expCaps = `
+{
+  "capabilities": {
+    "alwaysMatch": {
+      "browserName": "chrome",
+      "browserVersion": "102.0",
+      "acceptInsecureCerts": true,
+      "selenoid:options": {},
+      "proxy": {
+        "proxyType":"manual",
+        "httpProxy":"proxy:1234",
+        "sslProxy":"proxy:1234",
+        "noProxy":"1.1.1.1"
+      }
+    },
+    "firstMatch": [ {} ]
+  }
+}`
+)
 
 func TestWDSessionController_CreateSession(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	now := new(mocks.NowFunc)
-	sc := NewWDSessionController(srv, eb, now.Execute, zaptest.NewLogger(t))
-	now.EXPECT().Execute().Return(time.UnixMilli(123)).Once()
+	now := func() time.Time { return time.UnixMilli(123) }
+	pOpts := &config.ProxyOpts{
+		ProxyHost: "proxy:1234",
+		NoProxy:   "1.1.1.1",
+	}
+	sc := NewWDSessionController(srv, eb, now, pOpts, zaptest.NewLogger(t))
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/sess", strings.NewReader(caps1))
@@ -60,7 +84,7 @@ func TestWDSessionController_CreateSession(t *testing.T) {
 
 	srv.EXPECT().CreateSession(ctx.Request().Context(), mock.Anything).RunAndReturn(
 		func(_ context.Context, caps capabilities.Capabilities) (*session.Session, error) {
-			g.Expect(caps.GetRawCapabilities()).To(Equal([]byte(caps1)))
+			g.Expect(caps.GetRawCapabilities()).To(MatchJSON([]byte(expCaps)))
 			sess := session.NewSession("123", "", nil, caps, expResp, time.UnixMilli(456), nil, nil)
 			return sess, nil
 		}).Once()
@@ -94,7 +118,7 @@ func TestWDSessionController_CreateSessionInvalidCaps(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	sc := NewWDSessionController(srv, eb, nil, zaptest.NewLogger(t))
+	sc := NewWDSessionController(srv, eb, nil, nil, zaptest.NewLogger(t))
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/sess", strings.NewReader(caps2))
@@ -120,9 +144,8 @@ func TestWDSessionController_CreateSessionFailed(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	now := new(mocks.NowFunc)
-	sc := NewWDSessionController(srv, eb, now.Execute, zaptest.NewLogger(t))
-	now.EXPECT().Execute().Return(time.Time{})
+	now := func() time.Time { return time.Time{} }
+	sc := NewWDSessionController(srv, eb, now, nil, zaptest.NewLogger(t))
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/sess", strings.NewReader(caps1))
@@ -158,9 +181,8 @@ func TestWDSessionController_CreateSessionCancelled(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	now := new(mocks.NowFunc)
-	sc := NewWDSessionController(srv, eb, now.Execute, zaptest.NewLogger(t))
-	now.EXPECT().Execute().Return(time.Time{})
+	now := func() time.Time { return time.Time{} }
+	sc := NewWDSessionController(srv, eb, now, nil, zaptest.NewLogger(t))
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/sess", strings.NewReader(caps1))
@@ -195,9 +217,8 @@ func TestWDSessionController_CreateSessionPanic(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	now := new(mocks.NowFunc)
-	sc := NewWDSessionController(srv, eb, now.Execute, zaptest.NewLogger(t))
-	now.EXPECT().Execute().Return(time.Time{})
+	now := func() time.Time { return time.Time{} }
+	sc := NewWDSessionController(srv, eb, now, nil, zaptest.NewLogger(t))
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/sess", strings.NewReader(caps1))
@@ -230,7 +251,7 @@ func TestWDSessionController_CreateSessionPanic(t *testing.T) {
 func TestWDSessionController_ValidateSession(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
-	sc := NewWDSessionController(srv, nil, nil, zaptest.NewLogger(t))
+	sc := NewWDSessionController(srv, nil, nil, nil, zaptest.NewLogger(t))
 
 	s := &session.Session{}
 	srv.EXPECT().FindSession("s1").Return(s, nil).Once()
@@ -248,7 +269,7 @@ func TestWDSessionController_ValidateSession(t *testing.T) {
 func TestWDSessionController_ValidateSessionNotFound(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
-	sc := NewWDSessionController(srv, nil, nil, zaptest.NewLogger(t))
+	sc := NewWDSessionController(srv, nil, nil, nil, zaptest.NewLogger(t))
 
 	srv.EXPECT().FindSession("s2").Return(nil, errors.New("test session not found")).Once()
 	ctx, _ := getSessionContext(router.SessRoute("/sess/:%s"), "/sess/s1", "s2")
@@ -267,9 +288,8 @@ func TestWDSessionController_DeleteSession(t *testing.T) {
 	srv := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
 	caps := new(mocks.Capabilities)
-	now := new(mocks.NowFunc)
-	sc := NewWDSessionController(srv, eb, now.Execute, zaptest.NewLogger(t))
-	now.EXPECT().Execute().Return(time.UnixMilli(333)).Once()
+	now := func() time.Time { return time.UnixMilli(333) }
+	sc := NewWDSessionController(srv, eb, now, nil, zaptest.NewLogger(t))
 
 	s := session.NewSession("", "", nil, caps, nil, time.UnixMilli(111), nil, nil)
 	caps.EXPECT().GetName().Return("Test")
@@ -298,7 +318,7 @@ func TestWDSessionController_DeleteSession(t *testing.T) {
 func TestWDSessionController_Status(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
-	sc := NewWDSessionController(srv, nil, nil, zaptest.NewLogger(t))
+	sc := NewWDSessionController(srv, nil, nil, nil, zaptest.NewLogger(t))
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/status", strings.NewReader(""))

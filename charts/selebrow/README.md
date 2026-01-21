@@ -34,7 +34,14 @@ A Helm chart for standalone Selebrow deployment in Kubernetes
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | selebrow.browserUri | string | `""` | Browsers catalog URI, leave empty to use fallback (remote) browsers URI |
+| selebrow.logLevel | string | `"info"` | Log level, one of: debug, info, warn, error |
 | selebrow.namespace | string | `""` | namespace to create browser Pods, leave empty to match Selebrow deployment namespace) |
+| selebrow.proxy.enabled | bool | `false` | Enabled Selebrow proxy server, to catch all browser traffic through |
+| selebrow.proxy.host | string | `""` | External proxy server host:port for all browser traffic |
+| selebrow.proxy.logLevel | string | `"warn"` | Log level for Selebrow proxy server access logs, one of: debug, info, warn, error |
+| selebrow.proxy.noProxy | string | `""` | No proxy list for all browser traffic |
+| selebrow.proxy.port | int | `3991` | Selebrow proxy server port |
+| selebrow.proxy.resolveHost | bool | `false` | Resolve hosts before matching noProxy rules |
 | selebrow.quota.limit | int | `0` | Browsers quota limit, set to positive value to limit number of concurrently running browsers |
 
 ### Other Values

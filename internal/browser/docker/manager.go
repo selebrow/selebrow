@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -31,13 +32,19 @@ const (
 	portMappingWaitInitialInterval = 100 * time.Millisecond
 	portMappingWaitBackoffFactor   = 2
 	portMappingWaitBackoffSteps    = 5
+
+	dockerHost = "host.docker.internal"
 )
 
 var (
-	LocalIPs = netutils.LocalIPs
+	inDocker = docker.InDocker
+	localIPs = netutils.LocalIPs
 
 	ErrNetworkNotConnected = errors.New("container is not connected to configured network")
 	ErrIPUnknown           = errors.New("couldn't detect container ip address within configured network")
+
+	ownNetwork container.NetworkMode
+	ownIP      string
 )
 
 type DockerBrowserManagerOpts struct {
@@ -45,6 +52,7 @@ type DockerBrowserManagerOpts struct {
 	MapPorts   bool
 	Privileged bool
 	PullImages bool
+	Env        map[string]string
 }
 
 type DockerBrowserManager struct {
@@ -73,7 +81,7 @@ func NewDockerBrowserManager(
 		host = client.GetHost()
 		logger.Infof("running in port mapping mode via %s", host)
 	} else if opts.Network == "" {
-		nw, err := detectNetwork(client, logger)
+		nw, _, err := detectNetwork(client, logger)
 		if err != nil {
 			return nil, errors.Wrap(err,
 				"failed to detect own docker network, consider specifying --docker-network argument")
@@ -108,15 +116,19 @@ func pullImages(client docker.DockerClient, cat browsers.BrowsersCatalog, l *zap
 	return nil
 }
 
-func detectNetwork(client docker.DockerClient, l *zap.SugaredLogger) (container.NetworkMode, error) {
-	ips, err := LocalIPs()
+func detectNetwork(client docker.DockerClient, l *zap.SugaredLogger) (container.NetworkMode, string, error) {
+	if ownNetwork != "" {
+		return ownNetwork, ownIP, nil
+	}
+
+	ips, err := localIPs()
 	if err != nil {
-		return "", errors.Wrap(err, "failed to collect local ips")
+		return "", "", errors.Wrap(err, "failed to collect local ips")
 	}
 
 	conts, err := client.ContainerList(context.Background())
 	if err != nil {
-		return "", errors.Wrap(err, "failed to list running containers")
+		return "", "", errors.Wrap(err, "failed to list running containers")
 	}
 
 	for _, cont := range conts {
@@ -125,12 +137,14 @@ func detectNetwork(client docker.DockerClient, l *zap.SugaredLogger) (container.
 		}
 		for name, nw := range cont.NetworkSettings.Networks {
 			if slices.Contains(ips, nw.IPAddress) {
-				l.Infow("detected own docker network", zap.String("network", name))
-				return container.NetworkMode(name), nil
+				ownIP = nw.IPAddress
+				l.Infow("detected own docker network", zap.String("network", name), zap.String("ip", ownIP))
+				ownNetwork = container.NetworkMode(name)
+				return ownNetwork, ownIP, nil
 			}
 		}
 	}
-	return "", errors.New("unable to find container with any local assigned ip addresses")
+	return "", "", errors.New("unable to find container with any local assigned ip addresses")
 }
 
 func (m *DockerBrowserManager) Allocate(
@@ -192,7 +206,7 @@ func (m *DockerBrowserManager) createContainer(
 
 	config := &container.Config{
 		ExposedPorts: getExposedPorts(ports),
-		Env:          getEnv(cfg.Env, caps),
+		Env:          m.getEnv(cfg.Env, caps),
 		Cmd:          slices.Clone(cfg.Cmd),
 		Image:        image,
 		Labels:       getLabels(cfg.Labels, caps.GetLabels()),
@@ -210,7 +224,7 @@ func (m *DockerBrowserManager) createContainer(
 		RestartPolicy: container.RestartPolicy{
 			Name: container.RestartPolicyDisabled,
 		},
-		ExtraHosts: caps.GetHosts(),
+		ExtraHosts: m.getHosts(caps.GetHosts()),
 		Links:      caps.GetLinks(),
 		Privileged: m.opts.Privileged,
 		Tmpfs:      getTmpfs(cfg.Tmpfs),
@@ -382,6 +396,42 @@ func (m *DockerBrowserManager) getNetwork(networks map[string]*network.EndpointS
 	return networks[name]
 }
 
+func (m *DockerBrowserManager) getEnv(configEnv map[string]string, caps capabilities.Capabilities) []string {
+	overrides := make(map[string]string)
+	maps.Copy(overrides, m.opts.Env)
+	for _, e := range caps.GetEnvs() {
+		var value string
+		v := strings.SplitN(e, "=", 2)
+		if len(v) > 1 {
+			value = v[1]
+		}
+		overrides[v[0]] = value
+	}
+
+	overrides["ENABLE_VNC"] = strconv.FormatBool(caps.IsVNCEnabled())
+	overrides["SCREEN_RESOLUTION"] = caps.GetResolution()
+
+	combined := make(map[string]string)
+	maps.Copy(combined, configEnv)
+	maps.Copy(combined, overrides)
+
+	keys := maps.Keys(combined)
+	res := make([]string, len(combined))
+	for i, k := range slices.Sorted(keys) {
+		res[i] = fmt.Sprintf("%s=%s", k, combined[k])
+	}
+	return res
+}
+
+func (m *DockerBrowserManager) getHosts(hosts []string) []string {
+	var res []string
+	if !inDocker() && runtime.GOOS == "linux" {
+		// add host.docker.internal alias for Linux systems, see https://github.com/docker/for-linux/issues/264
+		res = append(res, dockerHost+":host-gateway")
+	}
+	return append(res, hosts...)
+}
+
 func getLabels(cfgLabels map[string]string, capsLabels map[string]string) map[string]string {
 	labels := make(map[string]string)
 	maps.Copy(labels, cfgLabels)
@@ -460,32 +510,6 @@ func tcpPort(p int) nat.Port {
 	return nat.Port(fmt.Sprintf("%d/tcp", p))
 }
 
-func getEnv(configEnv map[string]string, caps capabilities.Capabilities) []string {
-	overrides := make(map[string]string)
-	for _, e := range caps.GetEnvs() {
-		var value string
-		v := strings.SplitN(e, "=", 2)
-		if len(v) > 1 {
-			value = v[1]
-		}
-		overrides[v[0]] = value
-	}
-
-	overrides["ENABLE_VNC"] = strconv.FormatBool(caps.IsVNCEnabled())
-	overrides["SCREEN_RESOLUTION"] = caps.GetResolution()
-
-	combined := make(map[string]string)
-	maps.Copy(combined, configEnv)
-	maps.Copy(combined, overrides)
-
-	keys := maps.Keys(combined)
-	res := make([]string, len(combined))
-	for i, k := range slices.Sorted(keys) {
-		res[i] = fmt.Sprintf("%s=%s", k, combined[k])
-	}
-	return res
-}
-
 func allPortsMapped(ports nat.PortMap) bool {
 	var mapped bool
 	for _, p := range ports {
@@ -495,4 +519,18 @@ func allPortsMapped(ports nat.PortMap) bool {
 		mapped = true
 	}
 	return mapped
+}
+
+func DockerProxyHost(client docker.DockerClient, l *zap.Logger) string {
+	logger := l.Sugar()
+	if !inDocker() {
+		return dockerHost
+	}
+
+	_, ip, err := detectNetwork(client, logger)
+	if err != nil {
+		logger.Errorw("failed to detect own container network/ip for proxy", zap.Error(err))
+		return ""
+	}
+	return ip
 }

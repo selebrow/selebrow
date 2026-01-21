@@ -1,5 +1,12 @@
-with-expecter: True
+filename: "{{.InterfaceName}}.go"
+dir: "mocks"
+structname: "{{ .InterfaceName }}"
+pkgname: "mocks"
+template: testify
 packages:
+    net:
+      interfaces:
+        Conn:
     net/http:
       interfaces:
         RoundTripper:
@@ -16,9 +23,3 @@ packages:
       config:
         recursive: True
         all: True
-filename: "{{.InterfaceName}}.go"
-dir: "mocks"
-mockname: "{{.InterfaceName}}"
-outpkg: "mocks"
-resolve-type-alias: False
-issue-845-fix: True

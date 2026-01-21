@@ -58,7 +58,7 @@ lint-fix: golangci-lint
 	${GOLANGCI-LINT} fmt
 
 test:
-	set -o pipefail && go test -tags release --race --vet= --count=1 --covermode=atomic --coverprofile=coverage.out --coverpkg=./internal/...,./pkg/... ./... -v | tee report.txt
+	set -o pipefail && go test --race --vet= --count=1 --covermode=atomic --coverprofile=coverage.out --coverpkg=./internal/...,./pkg/... ./... -v | tee report.txt
 
 junit-report: go-junit-report
 	$(GO_JUNIT_REPORT) -set-exit-code < report.txt > report.xml
@@ -99,7 +99,7 @@ endif
 
 mockery:
 ifeq (, $(shell which $(MOCKERY)))
-	go install github.com/vektra/mockery/v2@latest
+	go install github.com/vektra/mockery/v3@v3.5.0
 endif
 
 install-helm-docs:
