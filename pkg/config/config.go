@@ -10,6 +10,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -20,6 +22,8 @@ var (
 type (
 	BackendType     string
 	PortMappingMode string
+
+	ProxyHostFunc func() string
 )
 
 const (
@@ -53,6 +57,7 @@ const (
 	dockerPullImages    = "docker-pull-images"
 	dockerPortMapping   = "docker-port-mapping"
 	dockerPlatform      = "docker-platform"
+	dockerEnv           = "docker-env"
 
 	quotaLimit   = "quota-limit"
 	queueSize    = "queue-size"
@@ -60,6 +65,14 @@ const (
 
 	ui          = "ui"
 	vncPassword = "vnc-password"
+
+	proxyEnabled        = "proxy-enabled"
+	proxyListen         = "proxy-listen"
+	proxyAccessLogLevel = "proxy-access-log-level"
+	proxyConnectTimeout = "proxy-connect-timeout"
+	proxyResolveHost    = "proxy-resolve-host"
+	proxyHost           = "proxy-host"
+	noProxy             = "no-proxy"
 
 	defaultConfigPath  = "config/"
 	defaultBrowsersURI = defaultConfigPath + "browsers.yaml"
@@ -117,12 +130,27 @@ type (
 		DockerPullImages() bool
 		DockerPortMapping() PortMappingMode
 		DockerPlatform() string
+		DockerEnv() map[string]string
 	}
 
 	QuotaConfig interface {
 		QuotaLimit() int
 		QueueSize() int
 		QueueTimeout() time.Duration
+	}
+
+	ProxyOpts struct {
+		ProxyHost string
+		NoProxy   string
+	}
+
+	ProxyConfig interface {
+		ProxyOpts(defaultProxyHostFn ProxyHostFunc) (*ProxyOpts, error)
+		ProxyEnabled() bool
+		ProxyListen() string
+		ProxyAccessLogLevel() zapcore.Level
+		ProxyConnectTimeout() time.Duration
+		ProxyResolveHost() bool
 	}
 
 	Config interface {
@@ -133,6 +161,7 @@ type (
 		PoolConfig
 		DockerConfig
 		QuotaConfig
+		ProxyConfig
 		Listen() string
 		Backend() BackendType
 		BrowsersURI() []string
@@ -213,6 +242,22 @@ func (c *ConfigViper) DockerPortMapping() PortMappingMode {
 
 func (c *ConfigViper) DockerPlatform() string {
 	return c.v.GetString(dockerPlatform)
+}
+
+func (c *ConfigViper) DockerEnv() map[string]string {
+	envParams := c.v.GetStringSlice(dockerEnv)
+	env := make(map[string]string, len(envParams))
+	for _, param := range envParams {
+		v := strings.SplitN(param, "=", 2)
+		if len(v) == 2 {
+			env[v[0]] = v[1]
+		} else if len(v) == 1 {
+			if val, ok := os.LookupEnv(v[0]); ok {
+				env[v[0]] = val
+			}
+		}
+	}
+	return env
 }
 
 func (c *ConfigViper) Backend() BackendType {
@@ -299,6 +344,60 @@ func (c *ConfigViper) VNCPassword() string {
 	return c.v.GetString(vncPassword)
 }
 
+func (c *ConfigViper) ProxyOpts(defaultProxyHostFn ProxyHostFunc) (*ProxyOpts, error) {
+	var err error
+	host := c.v.GetString(proxyHost)
+	if host == "" {
+		if !c.ProxyEnabled() {
+			return nil, nil
+		}
+		host, err = c.defaultProxyHost(defaultProxyHostFn)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &ProxyOpts{
+		ProxyHost: host,
+		NoProxy:   c.v.GetString(noProxy),
+	}, nil
+}
+
+func (c *ConfigViper) defaultProxyHost(defaultProxyHostFn ProxyHostFunc) (string, error) {
+	host := defaultProxyHostFn()
+	if host == "" {
+		return "", errors.New("can't determine proxy host")
+	}
+	if !strings.Contains(host, ":") {
+		pListen := c.ProxyListen()
+		i := strings.Index(pListen, ":")
+		if i < 0 {
+			return "", errors.Errorf("failed to get proxy port from listen spec: %s", pListen)
+		}
+		host += pListen[i:]
+	}
+	return host, nil
+}
+
+func (c *ConfigViper) ProxyEnabled() bool {
+	return c.v.GetBool(proxyEnabled)
+}
+
+func (c *ConfigViper) ProxyListen() string {
+	return c.v.GetString(proxyListen)
+}
+
+func (c *ConfigViper) ProxyAccessLogLevel() zapcore.Level {
+	return ZapLogLevel(c.v.GetString(proxyAccessLogLevel), zapcore.WarnLevel)
+}
+
+func (c *ConfigViper) ProxyConnectTimeout() time.Duration {
+	return c.v.GetDuration(proxyConnectTimeout)
+}
+
+func (c *ConfigViper) ProxyResolveHost() bool {
+	return c.v.GetBool(proxyResolveHost)
+}
+
 func bindEnvVars(v *viper.Viper) error {
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(envReplacer)
@@ -319,4 +418,18 @@ func quoteStrings[T ~string](vals []T) string {
 		sb.WriteRune('"')
 	}
 	return sb.String()
+}
+
+var logLevelMap = map[string]zapcore.Level{
+	"debug": zap.DebugLevel,
+	"info":  zap.InfoLevel,
+	"warn":  zap.WarnLevel,
+	"error": zap.ErrorLevel,
+}
+
+func ZapLogLevel(strLevel string, defaultLevel zapcore.Level) zapcore.Level {
+	if lvl, ok := logLevelMap[strings.ToLower(strLevel)]; ok {
+		return lvl
+	}
+	return defaultLevel
 }

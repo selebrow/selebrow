@@ -39,6 +39,7 @@ func ParseCmdLine(f *pflag.FlagSet, args []string) (*pflag.FlagSet, bool, error)
 	f.Bool(dockerPullImages, false, "Pre-pull browser docker images on startup (docker backend only)")
 	f.String(dockerPortMapping, string(PortMappingAuto), "Docker port mapping mode, valid options are: "+validPortMappingModesHelp)
 	f.String(dockerPlatform, "", "Docker platform for browser containers/images, e.g. linux/amd64 (docker backend only)")
+	f.StringSlice(dockerEnv, []string{}, "Extra environment variables for containers (docker backend only)")
 
 	f.Int(quotaLimit, 0, "Limit for simultaneously running browser containers/pods, "+
 		"0 (default) - automatically calculate limit based on available resources, -1 to disable quota")
@@ -46,6 +47,14 @@ func ParseCmdLine(f *pflag.FlagSet, args []string) (*pflag.FlagSet, bool, error)
 	f.Duration(queueTimeout, time.Minute, "Timeout to wait for available quota (when queue is enabled)")
 
 	f.String(vncPassword, DefaultVNCPassword, "VNC password to be used when connecting to VNC via UI")
+
+	f.String(proxyHost, "", "Proxy host:port to use for browser connections")
+	f.String(noProxy, "<-loopback>", "NO_PROXY list for browser connections")
+	f.Bool(proxyEnabled, false, "Enable proxy mode")
+	f.String(proxyListen, "127.0.0.1:3991", "Listening address and/or port for proxy")
+	f.String(proxyAccessLogLevel, "WARN", "Access log level for proxy access logs")
+	f.Duration(proxyConnectTimeout, 10*time.Second, "Upstream connect timeout for proxied connections")
+	f.Bool(proxyResolveHost, false, "Resolve hostnames to IP addresses before proxying")
 
 	if err := f.Parse(args); err != nil {
 		return nil, true, err

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
 
 	"github.com/selebrow/selebrow/pkg/models"
@@ -36,37 +37,53 @@ type Capabilities interface {
 }
 
 type CapsWrapper struct {
-	DesiredCapabilities *models.JsonWireCapabilities `json:"desiredCapabilities,omitempty"`
-	Capabilities        *models.W3CCapabilities      `json:"capabilities,omitempty"`
+	*models.JsonWireCapabilities
+	Capabilities *models.W3CCapabilities `json:"capabilities,omitempty"`
 }
 
-func NewCapabilities(r io.Reader) (Capabilities, error) {
-	var caps CapsWrapper
+func NewCapabilities(r io.Reader, defaultProxy *models.ProxyOptions) (Capabilities, error) {
+	var unparsedCaps CapsWrapper
 
 	raw, err := io.ReadAll(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to read Capabilities data")
+		return nil, errors.Wrap(err, "failed to read Capabilities data")
 	}
 
-	err = json.Unmarshal(raw, &caps)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed parsing Capabilities json")
+	// Deserialize to map[string]interface{} structures
+	if err := json.Unmarshal(raw, &unparsedCaps); err != nil {
+		return nil, errors.Wrap(err, "failed parsing Capabilities json")
 	}
 
-	var c Capabilities
-	if caps.Capabilities == nil {
-		if caps.DesiredCapabilities == nil {
-			return nil, errors.New("No valid capabilities provided in request")
+	c := new(models.Capabilities)
+
+	var updateProxyFn func(proxy *models.ProxyOptions)
+	if unparsedCaps.Capabilities == nil {
+		if unparsedCaps.JsonWireCapabilities == nil || unparsedCaps.DesiredCapabilities == nil {
+			return nil, errors.New("no valid capabilities provided in request")
 		}
 
-		caps.DesiredCapabilities.RawCapabilities = raw
-		c = caps.DesiredCapabilities // JSONWire caps
+		if err := decodeCapabilities(c, unparsedCaps.DesiredCapabilities, "jsonwire"); err != nil {
+			return nil, errors.Wrap(err, "failed to decode JsonWire capabilities")
+		}
+		//nolint:staticcheck // QF1008: we want to be more explicit here
+		updateProxyFn = unparsedCaps.JsonWireCapabilities.UpdateProxy
 	} else {
-		w3cCaps := caps.Capabilities
-		w3cCaps.Merge()
-		w3cCaps.RawCapabilities = raw
-		c = w3cCaps // W3C caps
+		if err := decodeCapabilities(c, unparsedCaps.Capabilities.Merge(), "w3c"); err != nil {
+			return nil, errors.Wrap(err, "failed to decode W3C capabilities")
+		}
+		updateProxyFn = unparsedCaps.Capabilities.UpdateProxy
 	}
+
+	if defaultProxy != nil && (c.Proxy == nil || c.Proxy.ProxyType != models.ProxyTypeManual) {
+		updateProxyFn(defaultProxy)
+		c.Proxy = defaultProxy
+		raw, err = json.Marshal(unparsedCaps)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to serialize updated capabilities")
+		}
+	}
+
+	c.RawCapabilities = raw
 
 	if err := validateCaps(c); err != nil {
 		return nil, err
@@ -121,4 +138,17 @@ func validateCaps(caps Capabilities) error {
 		return errors.Errorf("incorrect resolution value format (expected WIDTHxHEIGHTxBPP)")
 	}
 	return nil
+}
+
+func decodeCapabilities(caps Capabilities, data map[string]interface{}, tag string) error {
+	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.TextUnmarshallerHookFunc(),
+		Result:     caps,
+		TagName:    tag,
+	})
+	if err != nil {
+		return err
+	}
+
+	return d.Decode(data)
 }

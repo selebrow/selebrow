@@ -61,14 +61,16 @@ func initDockerWebDriverManager(
 	cfg config.Config,
 	cli dockerclient.DockerClient,
 	cat browsers.BrowsersCatalog,
-) *docker.DockerBrowserManager {
+) (*docker.DockerBrowserManager, config.ProxyHostFunc) {
 	l := log.GetLogger().Named("docker")
 
+	proxyHostFn := func() string { return docker.DockerProxyHost(cli, l) }
 	opts := docker.DockerBrowserManagerOpts{
 		Network:    container.NetworkMode(cfg.DockerNetwork()),
 		MapPorts:   portMappingEnabled(cfg),
 		Privileged: cfg.DockerPrivileged(),
 		PullImages: cfg.DockerPullImages(),
+		Env:        cfg.DockerEnv(),
 	}
 
 	dwm, err := docker.NewDockerBrowserManager(cli, cat, opts, l.Named("manager"))
@@ -76,7 +78,7 @@ func initDockerWebDriverManager(
 		InitLog.Fatalw("failed to initialize docker browser manager", zap.Error(err))
 	}
 
-	return dwm
+	return dwm, proxyHostFn
 }
 
 func portMappingEnabled(cfg config.DockerConfig) bool {

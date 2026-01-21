@@ -10,10 +10,11 @@ import (
 
 	"github.com/selebrow/selebrow/mocks"
 	"github.com/selebrow/selebrow/pkg/capabilities"
+	"github.com/selebrow/selebrow/pkg/models"
 )
 
 const (
-	fullW3c = `{
+	fullW3C = `{
     "capabilities":
     {
         "alwaysMatch":
@@ -27,7 +28,12 @@ const (
                 "enableVNC": true,                
                 "env": [ "a=b" ],
                 "flavor": "test"
-            }
+            },
+            "proxy": {
+			    "proxyType": "manual",
+			    "httpProxy": "http://127.0.0.1:8080",
+			    "sslProxy": "http://127.0.0.1:8080"
+			}
         },
         "firstMatch":
         [
@@ -64,15 +70,55 @@ const (
 			"flavor": "testjsw",
 			"env": [ "c=d" ],
             "enableVNC": true
-        }
+        },
+		"proxy": {
+			"proxyType": "manual",
+			"httpProxy": "http://127.0.0.1:8080",
+			"sslProxy": "http://127.0.0.1:8080"
+		}
     }
 }`
+	minimalW3C      = `{"capabilities":{"alwaysMatch":{}}}`
+	minimalJsonWire = `{"desiredCapabilities":{}}`
+
+	proxyW3C = `{
+    "capabilities":
+    {
+        "alwaysMatch":
+        {
+			"proxy": 
+			{
+				"proxyType": "manual",
+				"httpProxy": "http://test-proxy:8080",
+				"sslProxy": "http://test-proxy:8080"
+			}
+		}
+	}
+}`
+	proxyJsonWire = `{
+    "desiredCapabilities":
+    {
+		"proxy": 
+		{
+			"proxyType": "manual",
+			"httpProxy": "http://test-proxy:8080",
+			"sslProxy": "http://test-proxy:8080"
+		}
+	}
+}`
 )
+
+var testProxy = &models.ProxyOptions{
+	ProxyType: models.ProxyTypeManual,
+	HTTPProxy: "http://test-proxy:8080",
+	SSLProxy:  "http://test-proxy:8080",
+}
 
 func TestNewCapabilities(t *testing.T) {
 	tests := []struct {
 		name          string
 		input         string
+		defProxy      *models.ProxyOptions
 		expName       string
 		expVersion    string
 		expPlatform   string
@@ -82,6 +128,7 @@ func TestNewCapabilities(t *testing.T) {
 		expVnc        bool
 		expTestName   string
 		expEnvs       []string
+		expRaw        string
 		wantErr       bool
 	}{
 		{
@@ -96,7 +143,8 @@ func TestNewCapabilities(t *testing.T) {
 		},
 		{
 			name:          "W3C full",
-			input:         fullW3c,
+			input:         fullW3C,
+			defProxy:      testProxy,
 			expName:       "firefox",
 			expPlatform:   "gnu/hurd",
 			expVersion:    "119.0",
@@ -106,11 +154,20 @@ func TestNewCapabilities(t *testing.T) {
 			expVnc:        true,
 			expTestName:   "my-test",
 			expEnvs:       []string{"a=b"},
+			expRaw:        fullW3C,
 		},
 		{
 			name:    "W3C minimal",
-			input:   `{"capabilities":{"alwaysMatch":{}}}`,
+			input:   minimalW3C,
 			expEnvs: []string{},
+			expRaw:  minimalW3C,
+		},
+		{
+			name:     "W3C default proxy",
+			input:    minimalW3C,
+			defProxy: testProxy,
+			expEnvs:  []string{},
+			expRaw:   proxyW3C,
 		},
 		{
 			name:    "W3C malformed resolution",
@@ -120,6 +177,7 @@ func TestNewCapabilities(t *testing.T) {
 		{
 			name:          "JsonWire full",
 			input:         fullJsonWire,
+			defProxy:      testProxy,
 			expName:       "firefox",
 			expPlatform:   "cp/m",
 			expVersion:    "119.0",
@@ -129,22 +187,31 @@ func TestNewCapabilities(t *testing.T) {
 			expVnc:        true,
 			expTestName:   "my-test-jsw",
 			expEnvs:       []string{"c=d"},
+			expRaw:        fullJsonWire,
 		},
 		{
 			name:    "JsonWire minimal",
-			input:   `{"desiredCapabilities":{}}`,
+			input:   minimalJsonWire,
 			expEnvs: []string{},
+			expRaw:  minimalJsonWire,
+		},
+		{
+			name:     "JsonWire default proxy",
+			input:    minimalJsonWire,
+			defProxy: testProxy,
+			expEnvs:  []string{},
+			expRaw:   proxyJsonWire,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			got, err := capabilities.NewCapabilities(strings.NewReader(tt.input))
+			got, err := capabilities.NewCapabilities(strings.NewReader(tt.input), tt.defProxy)
 			if tt.wantErr {
 				g.Expect(err).To(HaveOccurred())
 			} else {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(got.GetRawCapabilities()).To(Equal([]byte(tt.input)))
+				g.Expect(got.GetRawCapabilities()).To(MatchJSON(tt.expRaw))
 				g.Expect(got.GetName()).To(Equal(tt.expName))
 				g.Expect(got.GetPlatform()).To(Equal(tt.expPlatform))
 				g.Expect(got.GetVersion()).To(Equal(tt.expVersion))

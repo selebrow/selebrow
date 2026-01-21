@@ -130,10 +130,32 @@ selebrow:
   # -- Browsers catalog URI, leave empty to use fallback (remote) browsers URI
   # @section -- Selebrow service settings
   browserUri: ""
+  # -- Log level, one of: debug, info, warn, error
+  # @section -- Selebrow service settings
+  logLevel: info
   quota:
     # -- Browsers quota limit, set to positive value to limit number of concurrently running browsers
     # @section -- Selebrow service settings
     limit: 0
+  proxy:
+    # -- Enabled Selebrow proxy server, to catch all browser traffic through
+    # @section -- Selebrow service settings
+    enabled: false
+    # -- Selebrow proxy server port
+    # @section -- Selebrow service settings
+    port: 3991
+    # -- External proxy server host:port for all browser traffic
+    # @section -- Selebrow service settings
+    host: ""
+    # -- No proxy list for all browser traffic
+    # @section -- Selebrow service settings
+    noProxy: ""
+    # -- Resolve hosts before matching noProxy rules
+    # @section -- Selebrow service settings
+    resolveHost: false
+    # -- Log level for Selebrow proxy server access logs, one of: debug, info, warn, error
+    # @section -- Selebrow service settings
+    logLevel: warn
 
 # -- Template to be used for browser pods instead of default template, prebuilt into Selebrow image
 # @section -- Browser template and values

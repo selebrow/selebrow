@@ -14,6 +14,7 @@ import (
 	"github.com/selebrow/selebrow/internal/common/clock"
 	"github.com/selebrow/selebrow/internal/router"
 	"github.com/selebrow/selebrow/internal/services/session"
+	"github.com/selebrow/selebrow/pkg/config"
 	"github.com/selebrow/selebrow/pkg/event"
 	evmodels "github.com/selebrow/selebrow/pkg/event/models"
 	"github.com/selebrow/selebrow/pkg/models"
@@ -50,14 +51,21 @@ type PWController struct {
 	transport http.RoundTripper
 	eb        event.EventBroker
 	now       clock.NowFunc
+	proxyOpts *pwProxyOptions
 	l         *zap.SugaredLogger
 }
 
 type pwLaunchOptions struct {
-	Args             []string       `json:"args,omitempty"`
-	Headless         *bool          `json:"headless,omitempty"`
-	Channel          string         `json:"channel,omitempty"`
-	FirefoxUserPrefs map[string]any `json:"firefoxUserPrefs,omitempty"`
+	Args             []string        `json:"args,omitempty"`
+	Headless         *bool           `json:"headless,omitempty"`
+	Channel          string          `json:"channel,omitempty"`
+	FirefoxUserPrefs map[string]any  `json:"firefoxUserPrefs,omitempty"`
+	Proxy            *pwProxyOptions `json:"proxy,omitempty"`
+}
+
+type pwProxyOptions struct {
+	Server string `json:"server,omitempty"`
+	Bypass string `json:"bypass,omitempty"`
 }
 
 type pwOptions struct {
@@ -79,19 +87,28 @@ func NewPWController(
 	transport http.RoundTripper,
 	eb event.EventBroker,
 	now clock.NowFunc,
+	opts *config.ProxyOpts,
 	l *zap.Logger,
 ) *PWController {
+	var proxyOpts *pwProxyOptions
+	if opts != nil {
+		proxyOpts = &pwProxyOptions{
+			Server: opts.ProxyHost,
+			Bypass: opts.NoProxy,
+		}
+	}
 	return &PWController{
 		svc:       svc,
 		transport: transport,
 		eb:        eb,
 		now:       now,
+		proxyOpts: proxyOpts,
 		l:         l.Sugar(),
 	}
 }
 
 func (p *PWController) CreateSession(c echo.Context) error {
-	opts, err := parsePWOptions(c)
+	opts, err := p.parsePWOptions(c)
 	ev := evmodels.SessionRequested{
 		Protocol:       models.PlaywrightProtocol,
 		BrowserName:    opts.Name,
@@ -209,8 +226,8 @@ func (p *PWController) defaultErrorHandler(remote string) func(http.ResponseWrit
 	}
 }
 
-//nolint:gocyclo // does not make sense to split
-func parsePWOptions(c echo.Context) (*pwOptions, error) {
+//nolint:gocyclo,gocognit,funlen // does not make sense to split
+func (p *PWController) parsePWOptions(c echo.Context) (*pwOptions, error) {
 	opts := &pwOptions{
 		Flavor:  c.QueryParam(router.FlavorQParam),
 		Name:    c.Param(router.NameParam),
@@ -295,6 +312,10 @@ func parsePWOptions(c echo.Context) (*pwOptions, error) {
 			opts.LaunchOpts.FirefoxUserPrefs = make(map[string]any)
 		}
 		maps.Copy(opts.LaunchOpts.FirefoxUserPrefs, ffUserPrefs)
+	}
+
+	if p.proxyOpts != nil && (opts.LaunchOpts.Proxy == nil || opts.LaunchOpts.Proxy.Server == "") {
+		opts.LaunchOpts.Proxy = p.proxyOpts
 	}
 
 	return opts, nil

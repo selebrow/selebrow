@@ -28,13 +28,12 @@ func TestPWSessionServiceImpl_CreateSession(t *testing.T) {
 	m := new(mocks.BrowserManager)
 	d := new(mocks.ContextDialer)
 	ss := new(mocks.SessionStorage)
-	now := new(mocks.NowFunc)
-	s := NewPWSessionService(m, ss, d, time.Second, false, now.Execute, zaptest.NewLogger(t))
+	testTime := time.UnixMilli(123)
+	now := func() time.Time { return testTime }
+	s := NewPWSessionService(m, ss, d, time.Second, false, now, zaptest.NewLogger(t))
 
 	br := new(mocks.Browser)
 
-	testTime := time.UnixMilli(123)
-	now.EXPECT().Execute().Return(testTime).Once()
 	genSessionID = func() string {
 		return "12345"
 	}
@@ -82,7 +81,6 @@ func TestPWSessionServiceImpl_CreateSession(t *testing.T) {
 	m.AssertExpectations(t)
 	br.AssertExpectations(t)
 	d.AssertExpectations(t)
-	now.AssertExpectations(t)
 }
 
 func TestPWSessionServiceImpl_CreateSession_Allocate_Error(t *testing.T) {
@@ -159,12 +157,11 @@ func TestPWSessionServiceImpl_CreateSession_StorageError(t *testing.T) {
 	m := new(mocks.BrowserManager)
 	d := new(mocks.ContextDialer)
 	ss := new(mocks.SessionStorage)
-	now := new(mocks.NowFunc)
-	s := NewPWSessionService(m, ss, d, time.Second, false, now.Execute, zaptest.NewLogger(t))
+	now := func() time.Time { return time.UnixMilli(123) }
+	s := NewPWSessionService(m, ss, d, time.Second, false, now, zaptest.NewLogger(t))
 
 	br := new(mocks.Browser)
 
-	now.EXPECT().Execute().Return(time.UnixMilli(123)).Once()
 	ss.EXPECT().IsShutdown().Return(false).Once()
 
 	caps := &models.PWCapabilities{Flavor: "some", Browser: "test", Version: "v2"}
@@ -183,7 +180,6 @@ func TestPWSessionServiceImpl_CreateSession_StorageError(t *testing.T) {
 	m.AssertExpectations(t)
 	br.AssertExpectations(t)
 	d.AssertExpectations(t)
-	now.AssertExpectations(t)
 }
 
 func TestPWSessionServiceImpl_CreateSession_Shutdown(t *testing.T) {

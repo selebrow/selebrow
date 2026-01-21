@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -22,6 +23,7 @@ import (
 	"github.com/selebrow/selebrow/internal/services/session"
 	"github.com/selebrow/selebrow/mocks"
 	"github.com/selebrow/selebrow/pkg/capabilities"
+	"github.com/selebrow/selebrow/pkg/config"
 	evmodels "github.com/selebrow/selebrow/pkg/event/models"
 	"github.com/selebrow/selebrow/pkg/models"
 )
@@ -92,8 +94,8 @@ func TestPWController_CreateSession_BadParameters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 			eb := new(mocks.EventBroker)
-			now := new(mocks.NowFunc)
-			cntr := NewPWController(nil, nil, eb, now.Execute, zaptest.NewLogger(t))
+			now := func() time.Time { return time.Time{} }
+			cntr := NewPWController(nil, nil, eb, now, nil, zaptest.NewLogger(t))
 			ctx, _ := getPWContext("chrome", "def", "v1", tt.params)
 
 			eb.EXPECT().Publish(mock.Anything).Run(func(e evmodels.IEvent) {
@@ -118,8 +120,12 @@ func TestPWController_CreateSession(t *testing.T) {
 	rt := new(mocks.RoundTripper)
 	s := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	now := new(mocks.NowFunc)
-	cntr := NewPWController(s, rt, eb, now.Execute, zaptest.NewLogger(t))
+	now := setupNow(g, 111, 144)
+	pOpts := &config.ProxyOpts{
+		ProxyHost: "proxy:1234",
+		NoProxy:   "1.1.1.1",
+	}
+	cntr := NewPWController(s, rt, eb, now, pOpts, zaptest.NewLogger(t))
 	br := new(mocks.Browser)
 
 	u, err := url.Parse("http://host:1234/qqq")
@@ -167,17 +173,16 @@ func TestPWController_CreateSession(t *testing.T) {
 
 	rt.EXPECT().RoundTrip(mock.Anything).Run(func(req *http.Request) {
 		g.Expect(req.Method).To(Equal(http.MethodGet))
+		fmt.Println(req.URL.String())
 		g.Expect(req.URL.String()).To(Equal(
 			u.String() + "?arg=ccc&arg=aaa&arg=bbb&headless=false" +
 				"&launch-options=%7B%22args%22%3A%5B%22ccc%22%2C%22aaa%22%2C%22bbb%22%5D%2C%22" +
-				"headless%22%3Afalse%2C%22channel%22%3A%22test%22" +
-				"%2C%22firefoxUserPrefs%22%3A%7B%22k1%22%3Atrue%2C%22k2%22%3A123%2C%22k3%22%3Afalse%2C%22k4%22%3A%22abc%22%7D%7D",
+				"headless%22%3Afalse%2C%22channel%22%3A%22test%22%2C%22" +
+				"firefoxUserPrefs%22%3A%7B%22k1%22%3Atrue%2C%22k2%22%3A123%2C%22k3%22%3Afalse%2C%22k4%22%3A%22abc%22%7D%2C%22" +
+				"proxy%22%3A%7B%22server%22%3A%22proxy%3A1234%22%2C%22bypass%22%3A%221.1.1.1%22%7D%7D",
 		))
 		g.Expect(req.Host).To(Equal(u.Host))
 	}).Return(mockResp, nil)
-
-	now.EXPECT().Execute().Return(time.UnixMilli(111)).Once()
-	now.EXPECT().Execute().Return(time.UnixMilli(144)).Once()
 
 	eb.EXPECT().Publish(mock.Anything).Run(func(e evmodels.IEvent) {
 		g.Expect(e.EventType()).To(Equal(evmodels.SessionRequestedEventType))
@@ -207,22 +212,37 @@ func TestPWController_CreateSession(t *testing.T) {
 	br.AssertExpectations(t)
 	s.AssertExpectations(t)
 	eb.AssertExpectations(t)
-	now.AssertExpectations(t)
+}
+
+func setupNow(g *WithT, time1, time2 int64) func() time.Time {
+	nowCounter := 0
+	now := func() time.Time {
+		nowCounter++
+		switch nowCounter {
+		case 1:
+			return time.UnixMilli(time1)
+		case 2:
+			return time.UnixMilli(time2)
+		default:
+			g.Fail("unexpected call to now")
+		}
+		return time.Time{} // not reached
+	}
+	return now
 }
 
 func TestPWController_CreateSession_Error(t *testing.T) {
 	g := NewWithT(t)
 	s := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	now := new(mocks.NowFunc)
-	cntr := NewPWController(s, nil, eb, now.Execute, zaptest.NewLogger(t))
+	now := func() time.Time { return time.UnixMilli(111) }
+	cntr := NewPWController(s, nil, eb, now, nil, zaptest.NewLogger(t))
 
 	ctx, _ := getPWContext("test", "custom", "v2", nil)
 	s.EXPECT().
 		CreateSession(context.Background(), &models.PWCapabilities{Flavor: "custom", Browser: "test", Version: "v2"}).
 		Return(nil, errors.New("test error")).
 		Once()
-	now.EXPECT().Execute().Return(time.UnixMilli(111)).Once()
 	eb.EXPECT().Publish(mock.Anything).Run(func(e evmodels.IEvent) {
 		g.Expect(e.EventType()).To(Equal(evmodels.SessionRequestedEventType))
 		g.Expect(e.(*evmodels.Event[evmodels.SessionRequested]).Attributes).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -239,15 +259,14 @@ func TestPWController_CreateSession_Error(t *testing.T) {
 
 	s.AssertExpectations(t)
 	eb.AssertExpectations(t)
-	now.AssertExpectations(t)
 }
 
 func TestPWController_CreateSession_Cancelled(t *testing.T) {
 	g := NewWithT(t)
 	s := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	now := new(mocks.NowFunc)
-	cntr := NewPWController(s, nil, eb, now.Execute, zaptest.NewLogger(t))
+	now := func() time.Time { return time.UnixMilli(111) }
+	cntr := NewPWController(s, nil, eb, now, nil, zaptest.NewLogger(t))
 
 	ctx, _ := getPWContext("test", "custom", "v1", nil)
 	expErr := errors.Wrap(context.Canceled, "error")
@@ -255,7 +274,6 @@ func TestPWController_CreateSession_Cancelled(t *testing.T) {
 		CreateSession(context.Background(), &models.PWCapabilities{Flavor: "custom", Browser: "test", Version: "v1"}).
 		Return(nil, expErr).
 		Once()
-	now.EXPECT().Execute().Return(time.UnixMilli(111)).Once()
 	eb.EXPECT().Publish(mock.Anything).Run(func(e evmodels.IEvent) {
 		g.Expect(e.EventType()).To(Equal(evmodels.SessionRequestedEventType))
 		g.Expect(e.(*evmodels.Event[evmodels.SessionRequested]).Attributes).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -279,15 +297,14 @@ func TestPWController_CreateSession_Panic(t *testing.T) {
 	g := NewWithT(t)
 	s := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	now := new(mocks.NowFunc)
-	cntr := NewPWController(s, nil, eb, now.Execute, zaptest.NewLogger(t))
+	now := func() time.Time { return time.UnixMilli(111) }
+	cntr := NewPWController(s, nil, eb, now, nil, zaptest.NewLogger(t))
 
 	ctx, _ := getPWContext("test", "custom", "v1", nil)
 	s.EXPECT().CreateSession(context.Background(), &models.PWCapabilities{Flavor: "custom", Browser: "test", Version: "v1"}).
 		Run(func(_ context.Context, _ capabilities.Capabilities) {
 			panic("test")
 		}).Once()
-	now.EXPECT().Execute().Return(time.UnixMilli(111)).Once()
 	eb.EXPECT().Publish(mock.Anything).Run(func(e evmodels.IEvent) {
 		g.Expect(e.EventType()).To(Equal(evmodels.SessionRequestedEventType))
 		g.Expect(e.(*evmodels.Event[evmodels.SessionRequested]).Attributes).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -305,7 +322,6 @@ func TestPWController_CreateSession_Panic(t *testing.T) {
 	}).To(PanicWith("test"))
 	s.AssertExpectations(t)
 	eb.AssertExpectations(t)
-	now.AssertExpectations(t)
 }
 
 func TestPWController_CreateSession_Proxy_Error(t *testing.T) {
@@ -313,8 +329,8 @@ func TestPWController_CreateSession_Proxy_Error(t *testing.T) {
 	rt := new(mocks.RoundTripper)
 	s := new(mocks.SessionService)
 	eb := new(mocks.EventBroker)
-	now := new(mocks.NowFunc)
-	cntr := NewPWController(s, rt, eb, now.Execute, zaptest.NewLogger(t))
+	now := setupNow(g, 111, 144)
+	cntr := NewPWController(s, rt, eb, now, nil, zaptest.NewLogger(t))
 	br := new(mocks.Browser)
 
 	u, err := url.Parse("http://host:1234/qqq")
@@ -333,9 +349,6 @@ func TestPWController_CreateSession_Proxy_Error(t *testing.T) {
 		g.Expect(req.URL).To(Equal(u))
 		g.Expect(req.Host).To(Equal(u.Host))
 	}).Return(nilResp, errors.New("test error"))
-
-	now.EXPECT().Execute().Return(time.UnixMilli(111)).Once()
-	now.EXPECT().Execute().Return(time.UnixMilli(144)).Once()
 
 	eb.EXPECT().Publish(mock.Anything).Run(func(e evmodels.IEvent) {
 		g.Expect(e.EventType()).To(Equal(evmodels.SessionRequestedEventType))
@@ -364,13 +377,12 @@ func TestPWController_CreateSession_Proxy_Error(t *testing.T) {
 	br.AssertExpectations(t)
 	s.AssertExpectations(t)
 	eb.AssertExpectations(t)
-	now.AssertExpectations(t)
 }
 
 func TestPWController_ValidateSession(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
-	c := NewPWController(srv, nil, nil, nil, zaptest.NewLogger(t))
+	c := NewPWController(srv, nil, nil, nil, nil, zaptest.NewLogger(t))
 
 	s := &session.Session{}
 	srv.EXPECT().FindSession("s1").Return(s, nil).Once()
@@ -388,7 +400,7 @@ func TestPWController_ValidateSession(t *testing.T) {
 func TestPWController_ValidateSessionNotFound(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
-	c := NewPWController(srv, nil, nil, nil, zaptest.NewLogger(t))
+	c := NewPWController(srv, nil, nil, nil, nil, zaptest.NewLogger(t))
 
 	srv.EXPECT().FindSession("s2").Return(nil, errors.New("test session not found")).Once()
 	ctx, _ := getSessionContext(router.SessRoute("/sess/:%s"), "/sess/s1", "s2")
