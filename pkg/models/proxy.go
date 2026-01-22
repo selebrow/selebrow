@@ -1,13 +1,16 @@
 package models
 
-// Partial proxy configuration capability model (see https://www.w3.org/TR/webdriver2/#proxy)
+import "strings"
+
+// Partial proxy configuration capability model (see https://	www.w3.org/TR/webdriver2/#proxy)
 type (
 	ProxyType    string
 	ProxyOptions struct {
 		ProxyType ProxyType `json:"proxyType,omitempty" jsonwire:"proxyType,omitempty" w3c:"proxyType,omitempty"`
 		HTTPProxy string    `json:"httpProxy,omitempty" jsonwire:"httpProxy,omitempty" w3c:"httpProxy,omitempty"`
 		SSLProxy  string    `json:"sslProxy,omitempty"  jsonwire:"sslProxy,omitempty"  w3c:"sslProxy,omitempty"`
-		NoProxy   string    `json:"noProxy,omitempty"   jsonwire:"noProxy,omitempty"   w3c:"noProxy,omitempty"`
+		// JsonWire - string, W3C WebDriver - array of strings
+		NoProxy any `json:"noProxy,omitempty"   jsonwire:"noProxy,omitempty"   w3c:"noProxy,omitempty"`
 	}
 )
 
@@ -19,7 +22,11 @@ const (
 	ProxyTypeAutoDetect ProxyType = "autodetect"
 )
 
-func NewHTTPProxy(proxyHost, noProxy string) *ProxyOptions {
+func NewHTTPProxy(proxyHost, noProxyStr string) *ProxyOptions {
+	noProxy := strings.Split(noProxyStr, ",")
+	for i, p := range noProxy {
+		noProxy[i] = strings.TrimSpace(p)
+	}
 	return &ProxyOptions{
 		ProxyType: ProxyTypeManual,
 		HTTPProxy: proxyHost,

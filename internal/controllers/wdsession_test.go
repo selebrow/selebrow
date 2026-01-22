@@ -52,7 +52,7 @@ const (
         "proxyType":"manual",
         "httpProxy":"proxy:1234",
         "sslProxy":"proxy:1234",
-        "noProxy":"1.1.1.1"
+        "noProxy": ["1.1.1.1"]
       }
     },
     "firstMatch": [ {} ]
@@ -67,7 +67,7 @@ func TestWDSessionController_CreateSession(t *testing.T) {
 	now := func() time.Time { return time.UnixMilli(123) }
 	pOpts := &config.ProxyOpts{
 		ProxyHost: "proxy:1234",
-		NoProxy:   "1.1.1.1",
+		NoProxy:   "1.1.1.1 ",
 	}
 	sc := NewWDSessionController(srv, eb, now, pOpts, zaptest.NewLogger(t))
 
