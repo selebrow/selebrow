@@ -90,7 +90,11 @@ const (
 			{
 				"proxyType": "manual",
 				"httpProxy": "http://test-proxy:8080",
-				"sslProxy": "http://test-proxy:8080"
+				"sslProxy": "http://test-proxy:8080",
+                "noProxy": [
+				  "localhost",
+				  "127.0.0.1"
+				]
 			}
 		}
 	}
@@ -102,7 +106,8 @@ const (
 		{
 			"proxyType": "manual",
 			"httpProxy": "http://test-proxy:8080",
-			"sslProxy": "http://test-proxy:8080"
+			"sslProxy": "http://test-proxy:8080",
+			"noProxy": "localhost,127.0.0.1"
 		}
 	}
 }`
@@ -112,6 +117,7 @@ var testProxy = &models.ProxyOptions{
 	ProxyType: models.ProxyTypeManual,
 	HTTPProxy: "http://test-proxy:8080",
 	SSLProxy:  "http://test-proxy:8080",
+	NoProxy:   []string{"localhost", "127.0.0.1"},
 }
 
 func TestNewCapabilities(t *testing.T) {
