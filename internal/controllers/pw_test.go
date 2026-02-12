@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -75,6 +74,11 @@ func TestPWController_CreateSession_BadParameters(t *testing.T) {
 			errMatch: MatchError(MatchRegexp(`.*malformed launch-options.*`)),
 		},
 		{
+			name:     "Bad context options",
+			params:   url.Values{"context-options": []string{"qqqq"}},
+			errMatch: MatchError(MatchRegexp(`.*malformed context-options.*`)),
+		},
+		{
 			name:     "Bad launch options firefoxUserPrefs (object)",
 			params:   url.Values{"launch-options": []string{`{"firefoxUserPrefs": {"test": {"key": 1234}}}`}},
 			errMatch: MatchError(MatchRegexp(`.*bad launch options.*invalid firefoxUserPref.*`)),
@@ -132,18 +136,20 @@ func TestPWController_CreateSession(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 
 	q := url.Values{
-		"arg":             []string{"aaa", "bbb"},
-		"headless":        []string{"false"},
-		"resolution":      []string{"1x2x3"},
-		"vnc":             []string{"false"}, // expected to be re-enabled by headless=false
-		"env":             []string{"pw_var1=val1", "PW_VAR2=val2"},
-		"label":           []string{"l1=v1", "l2=v2"},
-		"link":            []string{"l1", "l2"},
-		"host":            []string{"h1", "h2"},
-		"network":         []string{"n1", "n2"},
-		"channel":         []string{"test"},
-		"firefoxUserPref": []string{"k1=true", "k2=123", "k3=false", "k4=abc"},
-		"launch-options":  []string{`{"args": ["ccc"]}`},
+		"arg":              []string{"aaa", "bbb"},
+		"ignoreDefaultArg": []string{"ccc"},
+		"headless":         []string{"false"},
+		"resolution":       []string{"1x2x3"},
+		"vnc":              []string{"false"}, // expected to be re-enabled by headless=false
+		"env":              []string{"pw_var1=val1", "PW_VAR2=val2"},
+		"label":            []string{"l1=v1", "l2=v2"},
+		"link":             []string{"l1", "l2"},
+		"host":             []string{"h1", "h2"},
+		"network":          []string{"n1", "n2"},
+		"channel":          []string{"test"},
+		"firefoxUserPref":  []string{"k1=true", "k2=123", "k3=false", "k4=abc"},
+		"launch-options":   []string{`{"args": ["ccc"], "ignoreDefaultArgs": ["ddd"], "env": {"env1": "val1"}}`},
+		"context-options":  []string{`{"userAgent": "test"}`},
 	}
 	ctx, rec := getPWContext("test", "custom", "v1", q)
 	caps := &models.PWCapabilities{
@@ -152,7 +158,7 @@ func TestPWController_CreateSession(t *testing.T) {
 		Version:          "v1",
 		VNCEnabled:       true,
 		ScreenResolution: "1x2x3",
-		Env:              []string{"pw_var1=val1", "PW_VAR2=val2"},
+		Env:              []string{"env1=val1", "pw_var1=val1", "PW_VAR2=val2"},
 		Links:            []string{"l1", "l2"},
 		Hosts:            []string{"h1", "h2"},
 		Networks:         []string{"n1", "n2"},
@@ -173,14 +179,15 @@ func TestPWController_CreateSession(t *testing.T) {
 
 	rt.EXPECT().RoundTrip(mock.Anything).Run(func(req *http.Request) {
 		g.Expect(req.Method).To(Equal(http.MethodGet))
-		fmt.Println(req.URL.String())
-		g.Expect(req.URL.String()).To(Equal(
-			u.String() + "?arg=ccc&arg=aaa&arg=bbb&headless=false" +
-				"&launch-options=%7B%22args%22%3A%5B%22ccc%22%2C%22aaa%22%2C%22bbb%22%5D%2C%22" +
-				"headless%22%3Afalse%2C%22channel%22%3A%22test%22%2C%22" +
-				"firefoxUserPrefs%22%3A%7B%22k1%22%3Atrue%2C%22k2%22%3A123%2C%22k3%22%3Afalse%2C%22k4%22%3A%22abc%22%7D%2C%22" +
-				"proxy%22%3A%7B%22server%22%3A%22proxy%3A1234%22%2C%22bypass%22%3A%221.1.1.1%22%7D%7D",
-		))
+		qStr := "?arg=ccc&arg=aaa&arg=bbb" +
+			"&context-options=%7B%22userAgent%22%3A%22test%22%7D" +
+			"&headless=false" +
+			"&launch-options=%7B%22args%22%3A%5B%22ccc%22%2C%22aaa%22%2C%22bbb%22%5D%2C%22" +
+			"headless%22%3Afalse%2C%22channel%22%3A%22test%22%2C%22" +
+			"firefoxUserPrefs%22%3A%7B%22k1%22%3Atrue%2C%22k2%22%3A123%2C%22k3%22%3Afalse%2C%22k4%22%3A%22abc%22%7D%2C%22" +
+			"proxy%22%3A%7B%22server%22%3A%22proxy%3A1234%22%2C%22bypass%22%3A%221.1.1.1%22%7D%2C%22" +
+			"ignoreDefaultArgs%22%3A%5B%22ddd%22%2C%22ccc%22%5D%7D"
+		g.Expect(req.URL.String()).To(Equal(u.String() + qStr))
 		g.Expect(req.Host).To(Equal(u.Host))
 	}).Return(mockResp, nil)
 

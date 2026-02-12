@@ -25,19 +25,21 @@ import (
 )
 
 const (
-	PWVncParamQ             = "vnc"
-	PWArgParamQ             = "arg"
-	PWHeadlessParamQ        = "headless"
-	PWChannelParamQ         = "channel"
-	PWResolutionParamQ      = "resolution"
-	PWEnvParamQ             = "env"
-	PWLinkParamQ            = "link"
-	PWHostParamQ            = "host"
-	PWNetworkParamQ         = "network"
-	PWLabelParamQ           = "label"
-	PWFirefoxUserPrefParamQ = "firefoxUserPref"
+	PWVncParamQ              = "vnc"
+	PWArgParamQ              = "arg"
+	PWHeadlessParamQ         = "headless"
+	PWChannelParamQ          = "channel"
+	PWResolutionParamQ       = "resolution"
+	PWEnvParamQ              = "env"
+	PWLinkParamQ             = "link"
+	PWHostParamQ             = "host"
+	PWNetworkParamQ          = "network"
+	PWLabelParamQ            = "label"
+	PWFirefoxUserPrefParamQ  = "firefoxUserPref"
+	PWIgnoreDefaultArgParamQ = "ignoreDefaultArg"
 
-	PWLaunchOptionsParamQ = "launch-options"
+	PWLaunchOptionsParamQ   = "launch-options"
+	PWCcontextOptionsParamQ = "context-options"
 )
 
 var (
@@ -56,11 +58,13 @@ type PWController struct {
 }
 
 type pwLaunchOptions struct {
-	Args             []string        `json:"args,omitempty"`
-	Headless         *bool           `json:"headless,omitempty"`
-	Channel          string          `json:"channel,omitempty"`
-	FirefoxUserPrefs map[string]any  `json:"firefoxUserPrefs,omitempty"`
-	Proxy            *pwProxyOptions `json:"proxy,omitempty"`
+	Args              []string          `json:"args,omitempty"`
+	Headless          *bool             `json:"headless,omitempty"`
+	Channel           string            `json:"channel,omitempty"`
+	FirefoxUserPrefs  map[string]any    `json:"firefoxUserPrefs,omitempty"`
+	Proxy             *pwProxyOptions   `json:"proxy,omitempty"`
+	IgnoreDefaultArgs []string          `json:"ignoreDefaultArgs,omitempty"`
+	Env               map[string]string `json:"env,omitempty"`
 }
 
 type pwProxyOptions struct {
@@ -68,18 +72,21 @@ type pwProxyOptions struct {
 	Bypass string `json:"bypass,omitempty"`
 }
 
+type pwContextOptions map[string]any
+
 type pwOptions struct {
-	Flavor     string
-	Name       string
-	Version    string
-	LaunchOpts pwLaunchOptions
-	VNCEnabled bool
-	Resolution string
-	Env        []string
-	Links      []string
-	Hosts      []string
-	Networks   []string
-	Labels     map[string]string
+	Flavor      string
+	Name        string
+	Version     string
+	LaunchOpts  pwLaunchOptions
+	ContextOpts pwContextOptions
+	VNCEnabled  bool
+	Resolution  string
+	Env         []string
+	Links       []string
+	Hosts       []string
+	Networks    []string
+	Labels      map[string]string
 }
 
 func NewPWController(
@@ -154,6 +161,12 @@ func (p *PWController) CreateSession(c echo.Context) error {
 			launchOptsVal, err := json.Marshal(opts.LaunchOpts)
 			if err == nil { // actually always true
 				q.Set(PWLaunchOptionsParamQ, string(launchOptsVal))
+			}
+			if len(opts.ContextOpts) > 0 {
+				contextOptsVal, err := json.Marshal(opts.ContextOpts)
+				if err == nil { // actually always true
+					q.Set(PWCcontextOptionsParamQ, string(contextOptsVal))
+				}
 			}
 			r.URL.RawQuery = q.Encode()
 		},
@@ -241,10 +254,26 @@ func (p *PWController) parsePWOptions(c echo.Context) (*pwOptions, error) {
 		if err := validateLaunchOpts(opts.LaunchOpts); err != nil {
 			return opts, errors.Wrap(err, "bad launch options")
 		}
+		if opts.LaunchOpts.Env != nil {
+			for k, v := range opts.LaunchOpts.Env {
+				opts.Env = append(opts.Env, fmt.Sprintf("%s=%s", k, v))
+			}
+			opts.LaunchOpts.Env = nil // we don't want to pass it to playwright (container env is enough)
+		}
+	}
+
+	if contextOptsVal := c.QueryParam(PWCcontextOptionsParamQ); contextOptsVal != "" {
+		if err := json.Unmarshal([]byte(contextOptsVal), &opts.ContextOpts); err != nil {
+			return opts, errors.Wrap(err, "malformed context-options parameter")
+		}
 	}
 
 	if args := c.QueryParams()[PWArgParamQ]; len(args) > 0 {
 		opts.LaunchOpts.Args = append(opts.LaunchOpts.Args, args...)
+	}
+
+	if ignoreDefaultArgs := c.QueryParams()[PWIgnoreDefaultArgParamQ]; len(ignoreDefaultArgs) > 0 {
+		opts.LaunchOpts.IgnoreDefaultArgs = append(opts.LaunchOpts.IgnoreDefaultArgs, ignoreDefaultArgs...)
 	}
 
 	if channel := c.QueryParam(PWChannelParamQ); channel != "" {
@@ -266,7 +295,10 @@ func (p *PWController) parsePWOptions(c echo.Context) (*pwOptions, error) {
 			return opts, errors.Wrap(err, "bad headless parameter")
 		}
 		opts.LaunchOpts.Headless = ref(h)
-		opts.VNCEnabled = !h
+	}
+
+	if opts.LaunchOpts.Headless != nil && !*opts.LaunchOpts.Headless {
+		opts.VNCEnabled = true
 	}
 
 	if res := c.QueryParam(PWResolutionParamQ); res != "" {
@@ -280,7 +312,7 @@ func (p *PWController) parsePWOptions(c echo.Context) (*pwOptions, error) {
 		if err := validatePlaywrightEnv(env); err != nil {
 			return opts, errors.Wrap(err, "bad environment")
 		}
-		opts.Env = env
+		opts.Env = append(opts.Env, env...)
 	}
 
 	if links := c.QueryParams()[PWLinkParamQ]; len(links) > 0 {
