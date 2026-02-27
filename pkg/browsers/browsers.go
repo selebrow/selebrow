@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/distribution/reference"
 	"gopkg.in/yaml.v3"
 
 	"github.com/selebrow/selebrow/pkg/browser"
@@ -40,9 +41,12 @@ func (b *YamlBrowsersCatalog) GetImages() (result []string) {
 	return
 }
 
-func NewYamlBrowsersCatalog(data []byte) (*YamlBrowsersCatalog, error) {
+func NewYamlBrowsersCatalog(data []byte, imageRegistry string) (*YamlBrowsersCatalog, error) {
 	cat := make(models.BrowserCatalog)
 	if err := yaml.Unmarshal(data, &cat); err != nil {
+		return nil, err
+	}
+	if err := setImageRegistry(cat, imageRegistry); err != nil {
 		return nil, err
 	}
 	// TODO validate
@@ -64,7 +68,10 @@ func (b *YamlBrowsersCatalog) LookupBrowserImage(protocol models.BrowserProtocol
 		flavor = defaultFlavor
 	}
 	ic, ok := cfg.Images[flavor]
-	return ic, ok
+	if !ok {
+		return models.BrowserImageConfig{}, false
+	}
+	return *ic, ok
 }
 
 func (b *YamlBrowsersCatalog) GetBrowsers(
@@ -101,4 +108,42 @@ func (b *YamlBrowsersCatalog) GetBrowsers(
 	}
 
 	return result
+}
+
+func setImageRegistry(cat models.BrowserCatalog, newRegistry string) error {
+	if newRegistry == "" {
+		return nil
+	}
+	for _, browsers := range cat {
+		for _, browser := range browsers {
+			for _, image := range browser.Images {
+				newImage, err := replaceRegistry(image.Image, newRegistry)
+				if err != nil {
+					return err
+				}
+				image.Image = newImage
+			}
+		}
+	}
+	return nil
+}
+
+func replaceRegistry(image, newRegistry string) (string, error) {
+	// Parse and normalize (so "nginx" becomes "docker.io/library/nginx", etc.)
+	named, err := reference.ParseNormalizedNamed(image)
+	if err != nil {
+		return "", err
+	}
+
+	// Extract original components
+	path := reference.Path(named) // repository path without domain
+
+	// Build a new base name with the new domain
+	base := newRegistry + "/" + path
+	newNamed, err := reference.ParseNormalizedNamed(base)
+	if err != nil {
+		return "", err
+	}
+
+	return newNamed.String(), nil
 }

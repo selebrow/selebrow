@@ -21,7 +21,7 @@ type BrowserCatalog map[BrowserProtocol]Browsers
 type Browsers map[string]BrowserConfig
 
 type BrowserConfig struct {
-	Images map[string]BrowserImageConfig `yaml:"images"`
+	Images map[string]*BrowserImageConfig `yaml:"images"`
 }
 
 type BrowserImageConfig struct {

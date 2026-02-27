@@ -154,8 +154,8 @@ func downloadBrowsersConfig(httpClient hc.HTTPClient, uri string) ([]byte, error
 	return io.ReadAll(resp.Body)
 }
 
-func InitBrowsersCatalogFunc(_ config.Config, browsersConfig []byte) browsers.BrowsersCatalog {
-	cat, err := browsers.NewYamlBrowsersCatalog(browsersConfig)
+func InitBrowsersCatalogFunc(cfg config.Config, browsersConfig []byte) browsers.BrowsersCatalog {
+	cat, err := browsers.NewYamlBrowsersCatalog(browsersConfig, cfg.ImageProxyRegistry())
 	if err != nil {
 		InitLog.Fatalw("failed to initialize browsers catalog", zap.Error(err))
 	}

@@ -10,12 +10,13 @@ import (
 	"github.com/selebrow/selebrow/pkg/models"
 )
 
-const data1 = `
+const (
+	data1 = `
 webdriver:
   chrome:    
     images:
       default:
-        image: repo.tld/webdriver/chrome
+        image: webdriver/chrome
         defaultVersion: "116.0"
         versionTags:
           "116.0": chrome_116.0
@@ -48,7 +49,7 @@ webdriver:
         image: repo.tld/webdriver/firefox
         defaultVersion: "100.0"
         versionTags:
-          "100.0": firefox_100.0
+          "100.0": firefox_100.0@sha256:4f11413a295c52c7104a7a80ae0888915830869a0397711206f157797717466c
         ports: 
           browser: 4444
           vnc: 5900
@@ -75,11 +76,19 @@ playwright:
           cpu: 1
           memory: 4Gi
 `
+	dataBad1 = `
+webdriver:
+  chrome:    
+    images:
+      default:
+        image: <<<>>>
+`
+)
 
 func TestBrowsersCatalog_GetBrowsers(t *testing.T) {
 	g := NewWithT(t)
 
-	cat, err := NewYamlBrowsersCatalog([]byte(data1))
+	cat, err := NewYamlBrowsersCatalog([]byte(data1), "")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	got := cat.GetBrowsers(models.PlaywrightProtocol, "")
@@ -103,7 +112,7 @@ func TestBrowsersCatalog_GetBrowsers(t *testing.T) {
 func TestBrowsersCatalog_GetImages(t *testing.T) {
 	g := NewWithT(t)
 
-	cat, err := NewYamlBrowsersCatalog([]byte(data1))
+	cat, err := NewYamlBrowsersCatalog([]byte(data1), "")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	got := cat.GetImages()
@@ -112,15 +121,32 @@ func TestBrowsersCatalog_GetImages(t *testing.T) {
 		"inner-repo.tld/selebrow/chrome-cp:release-115.0",
 		"inner-repo.tld/selebrow/chrome-cp:release-116.0",
 		"repo.tld/playwright/webkit:1.23.1",
-		"repo.tld/webdriver/chrome:chrome_116.0",
-		"repo.tld/webdriver/firefox:firefox_100.0",
+		"webdriver/chrome:chrome_116.0",
+		"repo.tld/webdriver/firefox:firefox_100.0@sha256:4f11413a295c52c7104a7a80ae0888915830869a0397711206f157797717466c",
+	}))
+}
+
+func TestBrowsersCatalog_GetImages_WithRegistry(t *testing.T) {
+	g := NewWithT(t)
+
+	cat, err := NewYamlBrowsersCatalog([]byte(data1), "proxy-reg.tld/proxy")
+	g.Expect(err).ToNot(HaveOccurred())
+
+	got := cat.GetImages()
+
+	g.Expect(got).To(ConsistOf([]string{
+		"proxy-reg.tld/proxy/selebrow/chrome-cp:release-115.0",
+		"proxy-reg.tld/proxy/selebrow/chrome-cp:release-116.0",
+		"proxy-reg.tld/proxy/playwright/webkit:1.23.1",
+		"proxy-reg.tld/proxy/webdriver/chrome:chrome_116.0",
+		"proxy-reg.tld/proxy/webdriver/firefox:firefox_100.0@sha256:4f11413a295c52c7104a7a80ae0888915830869a0397711206f157797717466c",
 	}))
 }
 
 func TestBrowsersCatalog_GetBrowsers_Default_Flavor(t *testing.T) {
 	g := NewWithT(t)
 
-	cat, err := NewYamlBrowsersCatalog([]byte(data1))
+	cat, err := NewYamlBrowsersCatalog([]byte(data1), "")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	got := cat.GetBrowsers(models.PlaywrightProtocol, "some")
@@ -131,7 +157,7 @@ func TestBrowsersCatalog_GetBrowsers_Default_Flavor(t *testing.T) {
 func TestBrowsersCatalog_GetBrowsers_Not_Configured(t *testing.T) {
 	g := NewWithT(t)
 
-	cat, err := NewYamlBrowsersCatalog([]byte(``))
+	cat, err := NewYamlBrowsersCatalog([]byte(``), "")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	got := cat.GetBrowsers(models.PlaywrightProtocol, "")
@@ -142,7 +168,7 @@ func TestBrowsersCatalog_GetBrowsers_Not_Configured(t *testing.T) {
 func TestBrowsersCatalog_LookupBrowserImage(t *testing.T) {
 	g := NewWithT(t)
 
-	cat, err := NewYamlBrowsersCatalog([]byte(data1))
+	cat, err := NewYamlBrowsersCatalog([]byte(data1), "")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	_, found := cat.LookupBrowserImage(models.WebdriverProtocol, "safari", "")
@@ -155,7 +181,7 @@ func TestBrowsersCatalog_LookupBrowserImage(t *testing.T) {
 	g.Expect(found).To(BeTrue())
 
 	exp := models.BrowserImageConfig{
-		Image:          "repo.tld/webdriver/chrome",
+		Image:          "webdriver/chrome",
 		DefaultVersion: "116.0",
 		VersionTags: map[string]string{
 			"116.0": "chrome_116.0",
@@ -183,7 +209,7 @@ func TestBrowsersCatalog_LookupBrowserImage(t *testing.T) {
 func TestBrowsersCatalog_LookupBrowserImage_Not_Configured(t *testing.T) {
 	g := NewWithT(t)
 
-	cat, err := NewYamlBrowsersCatalog([]byte(``))
+	cat, err := NewYamlBrowsersCatalog([]byte(``), "")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	_, found := cat.LookupBrowserImage(models.WebdriverProtocol, "safari", "")
@@ -194,16 +220,27 @@ func TestNewYamlBrowsersCatalog_Negative(t *testing.T) {
 	tests := []struct {
 		name string
 		data string
+		reg  string
 	}{
 		{
 			name: "malformed yaml",
 			data: "qqqq",
 		},
+		{
+			name: "bad image",
+			data: dataBad1,
+			reg:  "test.tld",
+		},
+		{
+			name: "bad registry",
+			data: data1,
+			reg:  "<<<<",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			_, err := NewYamlBrowsersCatalog([]byte(tt.data))
+			_, err := NewYamlBrowsersCatalog([]byte(tt.data), tt.reg)
 			g.Expect(err).To(HaveOccurred())
 		})
 	}

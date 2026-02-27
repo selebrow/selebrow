@@ -34,6 +34,7 @@ A Helm chart for standalone Selebrow deployment in Kubernetes
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | selebrow.browserUri | string | `""` | Browsers catalog URI, leave empty to use fallback (remote) browsers URI |
+| selebrow.imageProxyRegistry | string | `""` | Docker image proxy registry to use for browser images |
 | selebrow.logLevel | string | `"info"` | Log level, one of: debug, info, warn, error |
 | selebrow.namespace | string | `""` | namespace to create browser Pods, leave empty to match Selebrow deployment namespace) |
 | selebrow.proxy.enabled | bool | `false` | Enabled Selebrow proxy server, to catch all browser traffic through |

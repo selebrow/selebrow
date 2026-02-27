@@ -74,6 +74,8 @@ const (
 	proxyHost           = "proxy-host"
 	noProxy             = "no-proxy"
 
+	imageProxyRegistry = "image-proxy-registry"
+
 	defaultConfigPath  = "config/"
 	defaultBrowsersURI = defaultConfigPath + "browsers.yaml"
 )
@@ -168,6 +170,7 @@ type (
 		Lineage() string
 		UI() bool
 		VNCPassword() string
+		ImageProxyRegistry() string
 	}
 
 	ConfigViper struct {
@@ -396,6 +399,10 @@ func (c *ConfigViper) ProxyConnectTimeout() time.Duration {
 
 func (c *ConfigViper) ProxyResolveHost() bool {
 	return c.v.GetBool(proxyResolveHost)
+}
+
+func (c *ConfigViper) ImageProxyRegistry() string {
+	return c.v.GetString(imageProxyRegistry)
 }
 
 func bindEnvVars(v *viper.Viper) error {
