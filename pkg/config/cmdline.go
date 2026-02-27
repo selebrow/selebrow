@@ -56,6 +56,8 @@ func ParseCmdLine(f *pflag.FlagSet, args []string) (*pflag.FlagSet, bool, error)
 	f.Duration(proxyConnectTimeout, 10*time.Second, "Upstream connect timeout for proxied connections")
 	f.Bool(proxyResolveHost, false, "Resolve hostnames to IP addresses before proxying")
 
+	f.String(imageProxyRegistry, "", "Docker image proxy registry to use for browser images")
+
 	if err := f.Parse(args); err != nil {
 		return nil, true, err
 	}

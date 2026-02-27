@@ -130,6 +130,9 @@ selebrow:
   # -- Browsers catalog URI, leave empty to use fallback (remote) browsers URI
   # @section -- Selebrow service settings
   browserUri: ""
+  # -- Docker image proxy registry to use for browser images
+  # @section -- Selebrow service settings
+  imageProxyRegistry: ""
   # -- Log level, one of: debug, info, warn, error
   # @section -- Selebrow service settings
   logLevel: info

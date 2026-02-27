@@ -68,6 +68,10 @@ spec:
             - name: SB_BROWSERS_URI
               value: {{ . | quote }}
           {{- end }}
+          {{- with .Values.selebrow.imageProxyRegistry }}
+            - name: SB_IMAGE_PROXY_REGISTRY
+              value: {{ . | quote }}
+          {{- end }}
           {{- with .Values.selebrow.logLevel}}
             - name: SB_LOG_LEVEL
               value: {{ . | quote }}

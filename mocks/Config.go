@@ -571,6 +571,50 @@ func (_c *Config_IdleTimeout_Call) RunAndReturn(run func() time.Duration) *Confi
 	return _c
 }
 
+// ImageProxyRegistry provides a mock function for the type Config
+func (_mock *Config) ImageProxyRegistry() string {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImageProxyRegistry")
+	}
+
+	var r0 string
+	if returnFunc, ok := ret.Get(0).(func() string); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	return r0
+}
+
+// Config_ImageProxyRegistry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImageProxyRegistry'
+type Config_ImageProxyRegistry_Call struct {
+	*mock.Call
+}
+
+// ImageProxyRegistry is a helper method to define mock.On call
+func (_e *Config_Expecter) ImageProxyRegistry() *Config_ImageProxyRegistry_Call {
+	return &Config_ImageProxyRegistry_Call{Call: _e.mock.On("ImageProxyRegistry")}
+}
+
+func (_c *Config_ImageProxyRegistry_Call) Run(run func()) *Config_ImageProxyRegistry_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Config_ImageProxyRegistry_Call) Return(s string) *Config_ImageProxyRegistry_Call {
+	_c.Call.Return(s)
+	return _c
+}
+
+func (_c *Config_ImageProxyRegistry_Call) RunAndReturn(run func() string) *Config_ImageProxyRegistry_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // JobID provides a mock function for the type Config
 func (_mock *Config) JobID() string {
 	ret := _mock.Called()
