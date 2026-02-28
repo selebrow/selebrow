@@ -150,7 +150,7 @@ jobs:
 
       - name: Package Helm chart
         run: |
-          helm package ./charts/selebrow -d ./charts --version ${GITHUB_REF_NAME} --app-version ${GITHUB_REF_NAME}
+          helm package ./charts/selebrow -d ./charts --version ${GITHUB_REF_NAME#v} --app-version ${GITHUB_REF_NAME}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
