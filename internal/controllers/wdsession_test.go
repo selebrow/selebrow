@@ -251,7 +251,9 @@ func TestWDSessionController_CreateSessionPanic(t *testing.T) {
 func TestWDSessionController_ValidateSession(t *testing.T) {
 	g := NewWithT(t)
 	srv := new(mocks.SessionService)
-	sc := NewWDSessionController(srv, nil, nil, nil, zaptest.NewLogger(t))
+	lastUsed := time.UnixMilli(123)
+	now := func() time.Time { return lastUsed }
+	sc := NewWDSessionController(srv, nil, now, nil, zaptest.NewLogger(t))
 
 	s := &session.Session{}
 	srv.EXPECT().FindSession("s1").Return(s, nil).Once()
@@ -263,6 +265,7 @@ func TestWDSessionController_ValidateSession(t *testing.T) {
 	g.Expect(rec).To(HaveHTTPStatus(http.StatusOK))
 
 	g.Expect(ctx.Get(SessionKey)).To(BeIdenticalTo(s))
+	g.Expect(s.LastUsed()).To(Equal(lastUsed))
 	srv.AssertExpectations(t)
 }
 

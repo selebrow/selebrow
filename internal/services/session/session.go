@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"maps"
+	"sync"
 	"time"
 
 	"github.com/selebrow/selebrow/pkg/browser"
@@ -10,12 +11,14 @@ import (
 )
 
 type Session struct {
+	mu       sync.RWMutex
 	id       string
 	platform string
 	br       browser.Browser
 	reqCaps  capabilities.Capabilities
 	resp     map[string]interface{}
 	created  time.Time
+	lastUsed time.Time
 	ctx      context.Context
 	cancel   context.CancelFunc
 }
@@ -72,4 +75,16 @@ func (s *Session) Context() context.Context {
 
 func (s *Session) Cancel() context.CancelFunc {
 	return s.cancel
+}
+
+func (s *Session) LastUsed() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastUsed
+}
+
+func (s *Session) SetLastUsed(t time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastUsed = t
 }

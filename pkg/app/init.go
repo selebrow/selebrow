@@ -39,6 +39,8 @@ const (
 	browsersFile    = "browsers.yaml"
 	podTemplateFile = "pod-template.yaml"
 	valuesFile      = "values.yaml"
+
+	sessionCleanupInterval = 10 * time.Second
 )
 
 var (
@@ -237,9 +239,11 @@ func initWDSessionService(
 	mgr browser.BrowserManager,
 	storage session.SessionStorage,
 	httpClient hc.HTTPClient,
+	sig *signal.Handler,
 ) *wdsession.WDSessionService {
 	l := log.GetLogger().Named("wdsession")
-	srv := wdsession.NewWDSessionServiceImpl(mgr, storage, httpClient, cfg, time.Now, l)
+	srv := wdsession.NewWDSessionServiceImpl(mgr, storage, httpClient, cfg, time.Now, sessionCleanupInterval, l)
+	sig.RegisterShutdownHook(srv, srv.Shutdown)
 	return srv
 }
 

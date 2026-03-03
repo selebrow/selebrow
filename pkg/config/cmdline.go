@@ -24,6 +24,8 @@ func ParseCmdLine(f *pflag.FlagSet, args []string) (*pflag.FlagSet, bool, error)
 	f.String(kubeTemplatesPath, defaultConfigPath, "Path to pod templates directory (kubernetes backend only)")
 
 	f.Duration(createTimeout, 3*time.Minute, "Timeout for create session requests")
+	f.Duration(defaultSessTimeout, 3*time.Minute, "Default Webdriver idle session timeout")
+	f.Duration(maxSessTimeout, 1*time.Hour, "Maximum Webdriver idle session timeout")
 	f.Int(createRetries, 5, "Number of retries on transient errors, when creating browser pods (kubernetes backend only)")
 	f.Duration(connectTimeout, 200*time.Millisecond, "Browser connection timeout")
 	f.String(browsersURI, defaultBrowsersURI, "Path or URL to browsers YAML config file")

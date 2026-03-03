@@ -32,6 +32,8 @@ type WDSessionService struct {
 	proxyDelete   bool
 	sStorage      session.SessionStorage
 	now           clock.NowFunc
+	cancel        context.CancelFunc
+	done          chan struct{}
 	l             *zap.SugaredLogger
 }
 
@@ -41,9 +43,10 @@ func NewWDSessionServiceImpl(
 	hc client.HTTPClient,
 	cfg config.WDSessionConfig,
 	now clock.NowFunc,
+	cleanupInterval time.Duration,
 	l *zap.Logger,
 ) *WDSessionService {
-	return &WDSessionService{
+	s := &WDSessionService{
 		mgr:           mgr,
 		client:        hc,
 		createTimeout: cfg.CreateTimeout(),
@@ -52,6 +55,14 @@ func NewWDSessionServiceImpl(
 		now:           now,
 		l:             l.Sugar(),
 	}
+
+	if cleanupInterval > 0 {
+		ctx, cancel := context.WithCancel(context.Background())
+		s.cancel = cancel
+		s.done = make(chan struct{})
+		go s.cleanupSessions(ctx, cleanupInterval, cfg.DefaultSessionTimeout(), cfg.MaxSessionTimeout())
+	}
+	return s
 }
 
 func (s *WDSessionService) ListSessions() []*session.Session {
@@ -117,6 +128,7 @@ func (s *WDSessionService) CreateSession(ctx context.Context, reqCaps capabiliti
 	}
 
 	sess := session.NewSession(id, platform, br, reqCaps, res, s.now(), nil, nil)
+	sess.SetLastUsed(s.now())
 	if err := s.sStorage.Add(models.WebdriverProtocol, sess); err != nil {
 		br.Close(context.Background(), true)
 		return nil, errors.Wrap(err, "failed to store session")
@@ -325,4 +337,53 @@ func (s *WDSessionService) deleteFile(ctx context.Context, baseURL *url.URL, fil
 	}
 
 	return nil
+}
+
+func (s *WDSessionService) cleanupSessions(
+	ctx context.Context,
+	cleanupInterval time.Duration,
+	defaultTimeout, maxTimeout time.Duration,
+) {
+	t := time.NewTicker(cleanupInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			s.cleanupIdleSessions(defaultTimeout, maxTimeout)
+		case <-ctx.Done():
+			close(s.done)
+			return
+		}
+	}
+}
+
+func (s *WDSessionService) cleanupIdleSessions(defaultTimeout, maxTimeout time.Duration) {
+	sessions := s.ListSessions()
+	for _, sess := range sessions {
+		timeout := sess.ReqCaps().GetTimeout()
+		if timeout <= 0 {
+			timeout = defaultTimeout
+		}
+		if timeout > maxTimeout {
+			timeout = maxTimeout
+		}
+		if idle := s.now().Sub(sess.LastUsed()); idle > timeout {
+			s.l.With(zap.String("session_id", sess.ID())).
+				Infof("closing Webdriver session idle for %v: sessionTimeout %v is reached", idle, timeout)
+			s.DeleteSession(sess)
+		}
+	}
+}
+
+func (s *WDSessionService) Shutdown(ctx context.Context) error {
+	if s.cancel == nil {
+		return nil
+	}
+	s.cancel()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.done:
+		return nil
+	}
 }

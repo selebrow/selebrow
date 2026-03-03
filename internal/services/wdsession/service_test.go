@@ -25,15 +25,15 @@ import (
 
 func TestWDSessionServiceImpl_CreateSession(t *testing.T) {
 	g := NewWithT(t)
-	client := new(mocks.HTTPClient)
-	cfg := createCfg(time.Second, false)
-	mgr := new(mocks.BrowserManager)
-	ss := new(mocks.SessionStorage)
+	client := mocks.NewHTTPClient(t)
+	cfg := createCfg(t, time.Second, false)
+	mgr := mocks.NewBrowserManager(t)
+	ss := mocks.NewSessionStorage(t)
 	createTime := time.UnixMilli(123)
 	now := func() time.Time { return createTime }
-	svc := wdsession.NewWDSessionServiceImpl(mgr, ss, client, cfg, now, zaptest.NewLogger(t))
+	svc := wdsession.NewWDSessionServiceImpl(mgr, ss, client, cfg, now, 0, zaptest.NewLogger(t))
 
-	caps := new(mocks.Capabilities)
+	caps := mocks.NewCapabilities(t)
 	caps.EXPECT().GetPlatform().Return("cp/m")
 	caps.EXPECT().GetName().Return("opera")
 	caps.EXPECT().GetVersion().Return("123.23")
@@ -41,7 +41,7 @@ func TestWDSessionServiceImpl_CreateSession(t *testing.T) {
 
 	ss.EXPECT().IsShutdown().Return(false).Once()
 
-	br := new(mocks.Browser)
+	br := mocks.NewBrowser(t)
 	expDeadline := time.Now().Add(time.Second)
 	mgr.EXPECT().
 		Allocate(mock.Anything, models.WebdriverProtocol, caps).
@@ -113,40 +113,36 @@ func TestWDSessionServiceImpl_CreateSession(t *testing.T) {
 	sess, err := svc.CreateSession(context.TODO(), caps)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(sess).To(BeIdenticalTo(savedSess))
-
-	caps.AssertExpectations(t)
-	br.AssertExpectations(t)
-	ss.AssertExpectations(t)
+	g.Expect(sess.LastUsed()).To(Equal(createTime))
 }
 
 func TestWDSessionServiceImpl_CreateSessionDefaultPlatform(t *testing.T) {
 	g := NewWithT(t)
 
-	client := new(mocks.HTTPClient)
-	cfg := createCfg(time.Second, false)
-	mgr := new(mocks.BrowserManager)
-	ss := new(mocks.SessionStorage)
+	client := mocks.NewHTTPClient(t)
+	cfg := createCfg(t, time.Second, false)
+	mgr := mocks.NewBrowserManager(t)
+	ss := mocks.NewSessionStorage(t)
 	now := func() time.Time { return time.Time{} }
-	svc := wdsession.NewWDSessionServiceImpl(mgr, ss, client, cfg, now, zaptest.NewLogger(t))
+	svc := wdsession.NewWDSessionServiceImpl(mgr, ss, client, cfg, now, 0, zaptest.NewLogger(t))
 
-	sess, err := createSession(g, svc, ss, mgr, client, "", "netscape", "11", "http://host1", "s1", "hst:11111")
+	sess, err := createSession(t, g, svc, ss, mgr, client, "", "netscape", "11", "http://host1", "s1", "hst:11111")
 	g.Expect(err).ToNot(HaveOccurred())
 
 	g.Expect(sess.Platform()).To(Equal(browser.DefaultPlatform))
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_CreateSessionTimeout(t *testing.T) {
 	g := NewWithT(t)
 
-	cfg := createCfg(time.Nanosecond, false)
-	mgr := new(mocks.BrowserManager)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(mgr, ss, nil, cfg, nil, zaptest.NewLogger(t))
+	cfg := createCfg(t, time.Nanosecond, false)
+	mgr := mocks.NewBrowserManager(t)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(mgr, ss, nil, cfg, nil, 0, zaptest.NewLogger(t))
 
 	ss.EXPECT().IsShutdown().Return(false).Once()
 
-	caps := new(mocks.Capabilities)
+	caps := mocks.NewCapabilities(t)
 	caps.EXPECT().GetPlatform().Return("")
 
 	mgr.EXPECT().
@@ -159,42 +155,36 @@ func TestWDSessionServiceImpl_CreateSessionTimeout(t *testing.T) {
 	var e models.ErrorWithCode
 	g.Expect(errors.As(err, &e)).To(BeTrue())
 	g.Expect(e.Code()).To(Equal(http.StatusGatewayTimeout))
-
-	mgr.AssertExpectations(t)
-	caps.AssertExpectations(t)
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_CreateSession_Shutdown(t *testing.T) {
 	g := NewWithT(t)
 
-	cfg := createCfg(time.Second, false)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, zaptest.NewLogger(t))
+	cfg := createCfg(t, time.Second, false)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, 0, zaptest.NewLogger(t))
 
 	ss.EXPECT().IsShutdown().Return(true).Once()
 	_, err := svc.CreateSession(context.TODO(), nil)
 	g.Expect(err).To(MatchError(session.ErrStorageShutdown))
-
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_CreateSession_StorageError(t *testing.T) {
 	g := NewWithT(t)
-	client := new(mocks.HTTPClient)
-	cfg := createCfg(time.Second, false)
-	mgr := new(mocks.BrowserManager)
-	ss := new(mocks.SessionStorage)
+	client := mocks.NewHTTPClient(t)
+	cfg := createCfg(t, time.Second, false)
+	mgr := mocks.NewBrowserManager(t)
+	ss := mocks.NewSessionStorage(t)
 	now := func() time.Time { return time.UnixMilli(123) }
-	svc := wdsession.NewWDSessionServiceImpl(mgr, ss, client, cfg, now, zaptest.NewLogger(t))
+	svc := wdsession.NewWDSessionServiceImpl(mgr, ss, client, cfg, now, 0, zaptest.NewLogger(t))
 
-	caps := new(mocks.Capabilities)
+	caps := mocks.NewCapabilities(t)
 	caps.EXPECT().GetPlatform().Return("cp/m")
 	caps.EXPECT().GetRawCapabilities().Return([]byte("{}"))
 
 	ss.EXPECT().IsShutdown().Return(false).Once()
 
-	br := new(mocks.Browser)
+	br := mocks.NewBrowser(t)
 	mgr.EXPECT().Allocate(mock.Anything, models.WebdriverProtocol, caps).Return(br, nil).Once()
 
 	u, err := url.Parse("http://host:123")
@@ -213,53 +203,46 @@ func TestWDSessionServiceImpl_CreateSession_StorageError(t *testing.T) {
 	br.EXPECT().Close(context.Background(), true).Once()
 	_, err = svc.CreateSession(context.TODO(), caps)
 	g.Expect(err).To(MatchError(MatchRegexp("failed to store.*test error")))
-
-	ss.AssertExpectations(t)
-	br.AssertExpectations(t)
-	caps.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_ListSessions(t *testing.T) {
 	g := NewWithT(t)
-	cfg := createCfg(time.Second, false)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, zaptest.NewLogger(t))
+	cfg := createCfg(t, time.Second, false)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, 0, zaptest.NewLogger(t))
 
 	testSessList := []*session.Session{{}, {}}
 
 	ss.EXPECT().List(models.WebdriverProtocol).Return(testSessList).Once()
 	sessList := svc.ListSessions()
 	g.Expect(sessList).To(Equal(testSessList))
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_DeleteSession(t *testing.T) {
-	cfg := createCfg(time.Second, false)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, zaptest.NewLogger(t))
+	cfg := createCfg(t, time.Second, false)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, 0, zaptest.NewLogger(t))
 
-	br1 := new(mocks.Browser)
+	br1 := mocks.NewBrowser(t)
 	s1 := session.NewSession("12345", "", br1, nil, nil, time.Time{}, nil, nil)
 
 	ss.EXPECT().Delete(models.WebdriverProtocol, "12345").Return(true).Once()
 	br1.EXPECT().Close(context.Background(), true).Once()
 	svc.DeleteSession(s1)
-	br1.AssertExpectations(t)
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_DeleteSessionProxy(t *testing.T) {
 	g := NewWithT(t)
 
-	client := new(mocks.HTTPClient)
-	cfg := createCfg(time.Second, true)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(nil, ss, client, cfg, nil, zaptest.NewLogger(t))
+	client := mocks.NewHTTPClient(t)
+	cfg := createCfg(t, time.Second, true)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, client, cfg, nil, 0, zaptest.NewLogger(t))
 
 	u, err := url.Parse("http://host1")
 	g.Expect(err).ToNot(HaveOccurred())
 
-	br1 := new(mocks.Browser)
+	br1 := mocks.NewBrowser(t)
 	s1 := session.NewSession("s1", "", br1, nil, nil, time.Time{}, nil, nil)
 
 	ss.EXPECT().Delete(models.WebdriverProtocol, "s1").Return(true).Once()
@@ -287,23 +270,20 @@ func TestWDSessionServiceImpl_DeleteSessionProxy(t *testing.T) {
 	br1.EXPECT().Close(context.Background(), false).Once()
 
 	svc.DeleteSession(s1)
-	client.AssertExpectations(t)
-	br1.AssertExpectations(t)
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_DeleteSessionTrash(t *testing.T) {
 	g := NewWithT(t)
 
-	client := new(mocks.HTTPClient)
-	cfg := createCfg(time.Second, true)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(nil, ss, client, cfg, nil, zaptest.NewLogger(t))
+	client := mocks.NewHTTPClient(t)
+	cfg := createCfg(t, time.Second, true)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, client, cfg, nil, 0, zaptest.NewLogger(t))
 
 	u, err := url.Parse("http://host1")
 	g.Expect(err).ToNot(HaveOccurred())
 
-	br1 := new(mocks.Browser)
+	br1 := mocks.NewBrowser(t)
 	s1 := session.NewSession("s1", "", br1, nil, nil, time.Time{}, nil, nil)
 
 	ss.EXPECT().Delete(models.WebdriverProtocol, "s1").Return(true).Once()
@@ -318,24 +298,20 @@ func TestWDSessionServiceImpl_DeleteSessionTrash(t *testing.T) {
 		g.Expect(req.Host).To(Equal("hst:11111"))
 	}).Return(&http.Response{StatusCode: http.StatusServiceUnavailable, Body: io.NopCloser(strings.NewReader(``))}, nil)
 	svc.DeleteSession(s1)
-
-	client.AssertExpectations(t)
-	br1.AssertExpectations(t)
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_DeleteSession_CleanupTrash(t *testing.T) {
 	g := NewWithT(t)
 
-	client := new(mocks.HTTPClient)
-	cfg := createCfg(time.Second, true)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(nil, ss, client, cfg, nil, zaptest.NewLogger(t))
+	client := mocks.NewHTTPClient(t)
+	cfg := createCfg(t, time.Second, true)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, client, cfg, nil, 0, zaptest.NewLogger(t))
 
 	u, err := url.Parse("http://host1")
 	g.Expect(err).ToNot(HaveOccurred())
 
-	br1 := new(mocks.Browser)
+	br1 := mocks.NewBrowser(t)
 	s1 := session.NewSession("s1", "", br1, nil, nil, time.Time{}, nil, nil)
 
 	ss.EXPECT().Delete(models.WebdriverProtocol, "s1").Return(true).Once()
@@ -358,61 +334,97 @@ func TestWDSessionServiceImpl_DeleteSession_CleanupTrash(t *testing.T) {
 	br1.EXPECT().Close(context.Background(), true).Once()
 
 	svc.DeleteSession(s1)
-	client.AssertExpectations(t)
-	br1.AssertExpectations(t)
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_DeleteSession_AlreadyDeleted(t *testing.T) {
-	cfg := createCfg(time.Second, false)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, zaptest.NewLogger(t))
+	cfg := createCfg(t, time.Second, false)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, 0, zaptest.NewLogger(t))
 
 	s1 := session.NewSession("12345", "", nil, nil, nil, time.Time{}, nil, nil)
 
 	ss.EXPECT().Delete(models.WebdriverProtocol, "12345").Return(false)
 	svc.DeleteSession(s1)
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_FindSession(t *testing.T) {
 	g := NewWithT(t)
 
-	cfg := createCfg(time.Second, false)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, zaptest.NewLogger(t))
+	cfg := createCfg(t, time.Second, false)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, 0, zaptest.NewLogger(t))
 
 	s1 := session.NewSession("12345", "", nil, nil, nil, time.Time{}, nil, nil)
 	ss.EXPECT().Get(models.WebdriverProtocol, "12345").Return(s1, true).Once()
 	got, err := svc.FindSession("12345")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(got).To(BeIdenticalTo(s1))
-
-	ss.AssertExpectations(t)
 }
 
 func TestWDSessionServiceImpl_FindSession_NotFound(t *testing.T) {
 	g := NewWithT(t)
 
-	cfg := createCfg(time.Second, false)
-	ss := new(mocks.SessionStorage)
-	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, zaptest.NewLogger(t))
+	cfg := createCfg(t, time.Second, false)
+	ss := mocks.NewSessionStorage(t)
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, nil, 0, zaptest.NewLogger(t))
 
 	ss.EXPECT().Get(models.WebdriverProtocol, "12345").Return(nil, false).Once()
 	_, err := svc.FindSession("12345")
 	g.Expect(err).To(MatchError(MatchRegexp("doesn't exist")))
-
-	ss.AssertExpectations(t)
 }
 
-func createCfg(timeout time.Duration, proxyDelete bool) *mocks.WDSessionConfig {
-	cfg := new(mocks.WDSessionConfig)
+func TestWDSessionServiceImpl_Shutdown_NoOp(t *testing.T) {
+	g := NewWithT(t)
+
+	cfg := createCfg(t, time.Second, false)
+	svc := wdsession.NewWDSessionServiceImpl(nil, nil, nil, cfg, nil, 0, zaptest.NewLogger(t))
+
+	err := svc.Shutdown(t.Context())
+	g.Expect(err).ToNot(HaveOccurred())
+}
+
+func TestWDSessionServiceImpl_CleanupSessions(t *testing.T) {
+	g := NewWithT(t)
+
+	cfg := createCfg(t, time.Second, false)
+	cfg.EXPECT().DefaultSessionTimeout().Return(time.Second).Once()
+	cfg.EXPECT().MaxSessionTimeout().Return(50 * time.Millisecond).Once()
+
+	ss := mocks.NewSessionStorage(t)
+	now := func() time.Time { return time.UnixMilli(123) }
+
+	br1 := mocks.NewBrowser(t)
+	caps := mocks.NewCapabilities(t)
+	caps.EXPECT().GetTimeout().Return(0).Once()
+	s1 := session.NewSession("12345", "", br1, caps, nil, time.Time{}, nil, nil)
+	s1.SetLastUsed(time.UnixMilli(70))
+
+	ss.EXPECT().List(models.WebdriverProtocol).Return([]*session.Session{s1}).Once()
+	ss.EXPECT().List(models.WebdriverProtocol).Return([]*session.Session{})
+	ch := make(chan struct{})
+	ss.EXPECT().Delete(models.WebdriverProtocol, "12345").
+		RunAndReturn(func(protocol models.BrowserProtocol, id string) bool {
+			close(ch)
+			return true
+		}).Once()
+	br1.EXPECT().Close(context.Background(), true).Once()
+	svc := wdsession.NewWDSessionServiceImpl(nil, ss, nil, cfg, now, 10*time.Millisecond, zaptest.NewLogger(t))
+
+	g.Eventually(ch).Should(BeClosed())
+
+	err := svc.Shutdown(t.Context())
+	g.Expect(err).ToNot(HaveOccurred())
+}
+
+func createCfg(t *testing.T, timeout time.Duration, proxyDelete bool) *mocks.WDSessionConfig {
+	cfg := mocks.NewWDSessionConfig(t)
 	cfg.EXPECT().CreateTimeout().Return(timeout)
 	cfg.EXPECT().ProxyDelete().Return(proxyDelete)
 	return cfg
 }
 
 func createSession(
+	t *testing.T,
 	g *WithT,
 	svc *wdsession.WDSessionService,
 	ss *mocks.SessionStorage,
@@ -423,7 +435,7 @@ func createSession(
 	ss.EXPECT().IsShutdown().Return(false).Once()
 	ss.EXPECT().Add(models.WebdriverProtocol, mock.Anything).Return(nil).Once()
 
-	caps := new(mocks.Capabilities)
+	caps := mocks.NewCapabilities(t)
 	caps.EXPECT().GetPlatform().Return(platform)
 	caps.EXPECT().GetName().Return(browserName)
 	caps.EXPECT().GetVersion().Return(version)
@@ -432,7 +444,7 @@ func createSession(
 	u, err := url.Parse(driverUrl)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	br := new(mocks.Browser)
+	br := mocks.NewBrowser(t)
 	mgr.EXPECT().Allocate(mock.Anything, models.WebdriverProtocol, caps).Return(br, nil).Once()
 	br.EXPECT().GetURL().Return(u)
 	br.EXPECT().GetHost().Return(host)

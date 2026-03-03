@@ -81,6 +81,94 @@ func (_c *WDSessionConfig_CreateTimeout_Call) RunAndReturn(run func() time.Durat
 	return _c
 }
 
+// DefaultSessionTimeout provides a mock function for the type WDSessionConfig
+func (_mock *WDSessionConfig) DefaultSessionTimeout() time.Duration {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for DefaultSessionTimeout")
+	}
+
+	var r0 time.Duration
+	if returnFunc, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+	return r0
+}
+
+// WDSessionConfig_DefaultSessionTimeout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DefaultSessionTimeout'
+type WDSessionConfig_DefaultSessionTimeout_Call struct {
+	*mock.Call
+}
+
+// DefaultSessionTimeout is a helper method to define mock.On call
+func (_e *WDSessionConfig_Expecter) DefaultSessionTimeout() *WDSessionConfig_DefaultSessionTimeout_Call {
+	return &WDSessionConfig_DefaultSessionTimeout_Call{Call: _e.mock.On("DefaultSessionTimeout")}
+}
+
+func (_c *WDSessionConfig_DefaultSessionTimeout_Call) Run(run func()) *WDSessionConfig_DefaultSessionTimeout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *WDSessionConfig_DefaultSessionTimeout_Call) Return(duration time.Duration) *WDSessionConfig_DefaultSessionTimeout_Call {
+	_c.Call.Return(duration)
+	return _c
+}
+
+func (_c *WDSessionConfig_DefaultSessionTimeout_Call) RunAndReturn(run func() time.Duration) *WDSessionConfig_DefaultSessionTimeout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// MaxSessionTimeout provides a mock function for the type WDSessionConfig
+func (_mock *WDSessionConfig) MaxSessionTimeout() time.Duration {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for MaxSessionTimeout")
+	}
+
+	var r0 time.Duration
+	if returnFunc, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+	return r0
+}
+
+// WDSessionConfig_MaxSessionTimeout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MaxSessionTimeout'
+type WDSessionConfig_MaxSessionTimeout_Call struct {
+	*mock.Call
+}
+
+// MaxSessionTimeout is a helper method to define mock.On call
+func (_e *WDSessionConfig_Expecter) MaxSessionTimeout() *WDSessionConfig_MaxSessionTimeout_Call {
+	return &WDSessionConfig_MaxSessionTimeout_Call{Call: _e.mock.On("MaxSessionTimeout")}
+}
+
+func (_c *WDSessionConfig_MaxSessionTimeout_Call) Run(run func()) *WDSessionConfig_MaxSessionTimeout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *WDSessionConfig_MaxSessionTimeout_Call) Return(duration time.Duration) *WDSessionConfig_MaxSessionTimeout_Call {
+	_c.Call.Return(duration)
+	return _c
+}
+
+func (_c *WDSessionConfig_MaxSessionTimeout_Call) RunAndReturn(run func() time.Duration) *WDSessionConfig_MaxSessionTimeout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ProxyDelete provides a mock function for the type WDSessionConfig
 func (_mock *WDSessionConfig) ProxyDelete() bool {
 	ret := _mock.Called()
