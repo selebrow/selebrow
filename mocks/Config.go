@@ -261,6 +261,50 @@ func (_c *Config_CreateTimeout_Call) RunAndReturn(run func() time.Duration) *Con
 	return _c
 }
 
+// DefaultSessionTimeout provides a mock function for the type Config
+func (_mock *Config) DefaultSessionTimeout() time.Duration {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for DefaultSessionTimeout")
+	}
+
+	var r0 time.Duration
+	if returnFunc, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+	return r0
+}
+
+// Config_DefaultSessionTimeout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DefaultSessionTimeout'
+type Config_DefaultSessionTimeout_Call struct {
+	*mock.Call
+}
+
+// DefaultSessionTimeout is a helper method to define mock.On call
+func (_e *Config_Expecter) DefaultSessionTimeout() *Config_DefaultSessionTimeout_Call {
+	return &Config_DefaultSessionTimeout_Call{Call: _e.mock.On("DefaultSessionTimeout")}
+}
+
+func (_c *Config_DefaultSessionTimeout_Call) Run(run func()) *Config_DefaultSessionTimeout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Config_DefaultSessionTimeout_Call) Return(duration time.Duration) *Config_DefaultSessionTimeout_Call {
+	_c.Call.Return(duration)
+	return _c
+}
+
+func (_c *Config_DefaultSessionTimeout_Call) RunAndReturn(run func() time.Duration) *Config_DefaultSessionTimeout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DockerEnv provides a mock function for the type Config
 func (_mock *Config) DockerEnv() map[string]string {
 	ret := _mock.Called()
@@ -963,6 +1007,50 @@ func (_c *Config_MaxIdle_Call) Return(n int) *Config_MaxIdle_Call {
 }
 
 func (_c *Config_MaxIdle_Call) RunAndReturn(run func() int) *Config_MaxIdle_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// MaxSessionTimeout provides a mock function for the type Config
+func (_mock *Config) MaxSessionTimeout() time.Duration {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for MaxSessionTimeout")
+	}
+
+	var r0 time.Duration
+	if returnFunc, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+	return r0
+}
+
+// Config_MaxSessionTimeout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MaxSessionTimeout'
+type Config_MaxSessionTimeout_Call struct {
+	*mock.Call
+}
+
+// MaxSessionTimeout is a helper method to define mock.On call
+func (_e *Config_Expecter) MaxSessionTimeout() *Config_MaxSessionTimeout_Call {
+	return &Config_MaxSessionTimeout_Call{Call: _e.mock.On("MaxSessionTimeout")}
+}
+
+func (_c *Config_MaxSessionTimeout_Call) Run(run func()) *Config_MaxSessionTimeout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Config_MaxSessionTimeout_Call) Return(duration time.Duration) *Config_MaxSessionTimeout_Call {
+	_c.Call.Return(duration)
+	return _c
+}
+
+func (_c *Config_MaxSessionTimeout_Call) RunAndReturn(run func() time.Duration) *Config_MaxSessionTimeout_Call {
 	_c.Call.Return(run)
 	return _c
 }

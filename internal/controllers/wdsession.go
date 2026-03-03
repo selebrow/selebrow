@@ -104,6 +104,7 @@ func (s *WDSessionController) ValidateSession(next echo.HandlerFunc) echo.Handle
 			return models.NewW3CErr(http.StatusNotFound, "unknown session", err)
 		}
 
+		sess.SetLastUsed(s.now())
 		c.Set(SessionKey, sess)
 		return next(c)
 	}

@@ -107,7 +107,7 @@ func Run(gitRef, gitSha, appName string) {
 	eb := InitEventBroker(cfg, sig)
 	InitEventAdapter(cfg, eb, backend, sig)
 
-	wdSvc := initWDSessionService(cfg, mgr, sStorage, client)
+	wdSvc := initWDSessionService(cfg, mgr, sStorage, client, sig)
 	pwSvc := initPWSessionService(cfg, dialer, backend, mgr, sStorage)
 
 	cLog := l.Named("controller")

@@ -43,6 +43,8 @@ const (
 	kubeClusterModeOut  = "kube-cluster-mode-out"
 	namespace           = "namespace"
 	createTimeout       = "create-timeout"
+	defaultSessTimeout  = "default-session-timeout"
+	maxSessTimeout      = "max-session-timeout"
 	createRetries       = "create-retries"
 	connectTimeout      = "connect-timeout"
 	poolMaxIdle         = "pool-max-idle"
@@ -104,6 +106,8 @@ type (
 
 	WDSessionConfig interface {
 		CreateTimeout() time.Duration
+		DefaultSessionTimeout() time.Duration
+		MaxSessionTimeout() time.Duration
 		ProxyDelete() bool
 	}
 
@@ -309,6 +313,14 @@ func (c *ConfigViper) BrowsersURI() []string {
 
 func (c *ConfigViper) CreateTimeout() time.Duration {
 	return c.v.GetDuration(createTimeout)
+}
+
+func (c *ConfigViper) DefaultSessionTimeout() time.Duration {
+	return c.v.GetDuration(defaultSessTimeout)
+}
+
+func (c *ConfigViper) MaxSessionTimeout() time.Duration {
+	return c.v.GetDuration(maxSessTimeout)
 }
 
 func (c *ConfigViper) CreateRetries() int {
