@@ -221,3 +221,22 @@ jobs:
           git commit -m "${TITLE}"
           git push -u origin "${BRANCH}"
           gh pr create -f
+
+  release-winget:
+    name: Publish to WinGet
+    runs-on: windows-latest
+    needs: publish-release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate and submit WinGet manifest PR
+        shell: pwsh
+        env:
+          WINGET_PAT: ${{ secrets.WINGET_PAT }}
+          GH_TOKEN: ${{ secrets.WINGET_PAT }}
+        run: |
+          .\.github\scripts\update-winget.ps1 `
+            -Tag "${{ github.ref_name }}" `
+            -ForkOwner "selebrow"
