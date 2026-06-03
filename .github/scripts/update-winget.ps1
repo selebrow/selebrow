@@ -147,7 +147,7 @@ $versionContent = (Get-Content $versionFile -Raw) `
 )
 
 $localeContent = (Get-Content $localeFile -Raw) `
-    -replace "PackageVersion: $oldVersion", "PackageVersion: $version"
+    -replace [regex]::Escape("$oldVersion"), "$version"
 
 [System.IO.File]::WriteAllText(
     (Resolve-Path $localeFile),
