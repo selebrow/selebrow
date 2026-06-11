@@ -10,8 +10,8 @@ import (
 	"github.com/selebrow/selebrow/pkg/log"
 	"github.com/selebrow/selebrow/pkg/quota"
 
-	"github.com/docker/docker/api/types/container"
-	dc "github.com/docker/docker/client"
+	"github.com/moby/moby/api/types/container"
+	dc "github.com/moby/moby/client"
 	"go.uber.org/zap"
 )
 
@@ -26,13 +26,12 @@ func InitDockerClientFunc(cfg config.Config) dockerclient.DockerClient {
 		InitLog.Fatalw("failed to load client options from Docker context", zap.Error(err))
 	}
 
-	opts = append(opts, dc.WithAPIVersionNegotiation())
-	dockerCli, err := dc.NewClientWithOpts(opts...)
+	dockerCli, err := dc.New(opts...)
 	if err != nil {
 		InitLog.Fatalw("failed to initialize Docker client, check your environment", zap.Error(err))
 	}
 
-	_, err = dockerCli.Ping(context.Background())
+	_, err = dockerCli.Ping(context.Background(), dc.PingOptions{})
 	if err != nil {
 		InitLog.Fatalw("failed to ping Docker daemon", zap.Error(err))
 	}

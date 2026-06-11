@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net/netip"
 	"net/url"
 	"runtime"
 	"slices"
@@ -11,10 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/errdefs"
-	"github.com/docker/go-connections/nat"
+	errdefs "github.com/containerd/errdefs"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -136,8 +136,13 @@ func detectNetwork(client docker.DockerClient, l *zap.SugaredLogger) (container.
 			continue
 		}
 		for name, nw := range cont.NetworkSettings.Networks {
-			if slices.Contains(ips, nw.IPAddress) {
-				ownIP = nw.IPAddress
+			if !nw.IPAddress.IsValid() {
+				continue
+			}
+			ip := nw.IPAddress.String()
+
+			if slices.Contains(ips, ip) {
+				ownIP = ip
 				l.Infow("detected own docker network", zap.String("network", name), zap.String("ip", ownIP))
 				ownNetwork = container.NetworkMode(name)
 				return ownNetwork, ownIP, nil
@@ -212,7 +217,7 @@ func (m *DockerBrowserManager) createContainer(
 		Labels:       getLabels(cfg.Labels, caps.GetLabels()),
 	}
 
-	var portMap nat.PortMap
+	var portMap network.PortMap
 	if m.opts.MapPorts {
 		portMap = getPortBindings(ports)
 	}
@@ -253,6 +258,7 @@ func (m *DockerBrowserManager) doCreateContainer(
 		if errdefs.IsNotFound(err) {
 			// pull image (if pre pull was disabled at startup)
 			errCh := make(chan error, 1)
+			//nolint:gosec // image pull should continue after request cancellation to warm Docker cache
 			go func() {
 				// we are using context.Background here to avoid pull cancel if client is not patient enough
 				// in this case it will continue in background
@@ -334,17 +340,24 @@ func (m *DockerBrowserManager) createBrowser(
 		ports         map[models.ContainerPort]int
 	)
 
-	containerIP := info.NetworkSettings.IPAddress
-	if containerIP == "" {
-		nw := m.getNetwork(info.NetworkSettings.Networks)
-		if nw == nil {
-			return nil, ErrNetworkNotConnected
-		}
-		containerIP = nw.IPAddress
+	if info.NetworkSettings == nil || len(info.NetworkSettings.Networks) == 0 {
+		return nil, ErrNetworkNotConnected
 	}
+
+	nw := m.getNetwork(info.NetworkSettings.Networks)
+	if nw == nil {
+		return nil, ErrNetworkNotConnected
+	}
+
+	if !nw.IPAddress.IsValid() {
+		return nil, ErrIPUnknown
+	}
+
+	containerIP := nw.IPAddress.String()
 	if containerIP == "" {
 		return nil, ErrIPUnknown
 	}
+
 	host := fmt.Sprintf("%s:%d", containerIP, cfg.Ports[models.BrowserPort])
 
 	if !m.opts.MapPorts {
@@ -439,7 +452,7 @@ func getLabels(cfgLabels map[string]string, capsLabels map[string]string) map[st
 	return labels
 }
 
-func getMappedPort(ports nat.PortMap, p int) (int, bool) {
+func getMappedPort(ports network.PortMap, p int) (int, bool) {
 	port := tcpPort(p)
 	mappings, ok := ports[port]
 	if !ok {
@@ -483,13 +496,13 @@ func getLimit(limits map[string]string, name string) *resource.Quantity {
 	return &q
 }
 
-func getPortBindings(ports map[models.ContainerPort]int) nat.PortMap {
-	res := make(nat.PortMap)
+func getPortBindings(ports map[models.ContainerPort]int) network.PortMap {
+	res := make(network.PortMap)
 	for _, p := range ports {
 		port := tcpPort(p)
-		res[port] = []nat.PortBinding{ // dynamic binding
+		res[port] = []network.PortBinding{
 			{
-				HostIP:   "",
+				HostIP:   netip.IPv4Unspecified(),
 				HostPort: "",
 			},
 		}
@@ -497,8 +510,8 @@ func getPortBindings(ports map[models.ContainerPort]int) nat.PortMap {
 	return res
 }
 
-func getExposedPorts(ports map[models.ContainerPort]int) nat.PortSet {
-	res := make(nat.PortSet)
+func getExposedPorts(ports map[models.ContainerPort]int) network.PortSet {
+	res := make(network.PortSet)
 	for _, p := range ports {
 		port := tcpPort(p)
 		res[port] = struct{}{}
@@ -506,11 +519,11 @@ func getExposedPorts(ports map[models.ContainerPort]int) nat.PortSet {
 	return res
 }
 
-func tcpPort(p int) nat.Port {
-	return nat.Port(fmt.Sprintf("%d/tcp", p))
+func tcpPort(p int) network.Port {
+	return network.MustParsePort(fmt.Sprintf("%d/tcp", p))
 }
 
-func allPortsMapped(ports nat.PortMap) bool {
+func allPortsMapped(ports network.PortMap) bool {
 	var mapped bool
 	for _, p := range ports {
 		if len(p) == 0 || p[0].HostPort == "" {

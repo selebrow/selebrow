@@ -2,13 +2,20 @@ package docker
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/distribution/reference"
-	imagetypes "github.com/docker/docker/api/types/image"
-	registrytypes "github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/registry"
+	"github.com/docker/cli/cli/config/types"
+	"github.com/moby/moby/api/pkg/authconfig"
+	imagetypes "github.com/moby/moby/api/types/image"
+	registrytypes "github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+)
+
+const (
+	defaultRegistryHost = "docker.io"
+	dockerIndexServer   = "https://index.docker.io/v1/"
 )
 
 // Below code is partially copied from docker/cli code with minor changes
@@ -20,9 +27,9 @@ func (c *DockerClientImpl) ImagePull(ctx context.Context, image string) error {
 		return err
 	}
 
-	resp, err := c.dockerCli.ImagePull(ctx, image, imagetypes.PullOptions{
+	resp, err := c.dockerCli.ImagePull(ctx, image, client.ImagePullOptions{
 		RegistryAuth: encodedAuth,
-		Platform:     c.imagePlatform(),
+		Platforms:    c.imagePlatforms(),
 	})
 	if err != nil {
 		return err
@@ -34,14 +41,21 @@ func (c *DockerClientImpl) ImagePull(ctx context.Context, image string) error {
 
 // ImageInspect Inspect image with default options
 func (c *DockerClientImpl) ImageInspect(ctx context.Context, image string) (imagetypes.InspectResponse, error) {
-	return c.dockerCli.ImageInspect(ctx, image)
+	res, err := c.dockerCli.ImageInspect(ctx, image)
+	if err != nil {
+		return imagetypes.InspectResponse{}, err
+	}
+	return res.InspectResponse, nil
 }
 
-func (c *DockerClientImpl) imagePlatform() string {
+func (c *DockerClientImpl) imagePlatforms() []ocispec.Platform {
 	if c.platform == "" && c.arch == "" {
-		return ""
+		return nil
 	}
-	return fmt.Sprintf("%s/%s", c.platform, c.arch)
+	return []ocispec.Platform{{
+		Architecture: c.arch,
+		OS:           c.platform,
+	}}
 }
 
 func (c *DockerClientImpl) retrieveAuthTokenFromImage(image string) (string, error) {
@@ -50,11 +64,7 @@ func (c *DockerClientImpl) retrieveAuthTokenFromImage(image string) (string, err
 	if err != nil {
 		return "", err
 	}
-	encodedAuth, err := registrytypes.EncodeAuthConfig(authConfig)
-	if err != nil {
-		return "", err
-	}
-	return encodedAuth, nil
+	return authconfig.Encode(authConfig)
 }
 
 // resolveAuthConfigFromImage retrieves that AuthConfig using the image string
@@ -63,19 +73,28 @@ func (c *DockerClientImpl) resolveAuthConfigFromImage(image string) (registrytyp
 	if err != nil {
 		return registrytypes.AuthConfig{}, err
 	}
-	repoInfo, err := registry.ParseRepositoryInfo(registryRef)
-	if err != nil {
-		return registrytypes.AuthConfig{}, err
+
+	registryHost := reference.Domain(registryRef)
+	if registryHost == "" || registryHost == defaultRegistryHost || registryHost == "index.docker.io" {
+		return c.resolveAuthConfig(dockerIndexServer), nil
 	}
-	return c.resolveAuthConfig(repoInfo.Index), nil
+
+	return c.resolveAuthConfig(registryHost), nil
 }
 
-func (c *DockerClientImpl) resolveAuthConfig(index *registrytypes.IndexInfo) registrytypes.AuthConfig {
-	configKey := index.Name
-	if index.Official {
-		configKey = registry.IndexServer
+func (c *DockerClientImpl) resolveAuthConfig(configKey string) registrytypes.AuthConfig {
+	authConfig, _ := c.configFile.GetAuthConfig(configKey)
+
+	if authConfig == (types.AuthConfig{}) && configKey == dockerIndexServer {
+		authConfig, _ = c.configFile.GetAuthConfig(defaultRegistryHost)
 	}
 
-	a, _ := c.configFile.GetAuthConfig(configKey)
-	return registrytypes.AuthConfig(a)
+	return registrytypes.AuthConfig{
+		Username:      authConfig.Username,
+		Password:      authConfig.Password,
+		Auth:          authConfig.Auth,
+		ServerAddress: authConfig.ServerAddress,
+		IdentityToken: authConfig.IdentityToken,
+		RegistryToken: authConfig.RegistryToken,
+	}
 }

@@ -2,14 +2,14 @@ package docker
 
 import (
 	"context"
+	"net/netip"
 	"runtime"
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/api/types/network"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
@@ -182,15 +182,15 @@ var (
 
 	expConfig = &container.Config{
 		Cmd:          []string{"run"},
-		ExposedPorts: nat.PortSet{"123/tcp": struct{}{}, "777/tcp": struct{}{}},
+		ExposedPorts: network.PortSet{network.MustParsePort("123/tcp"): struct{}{}, network.MustParsePort("777/tcp"): struct{}{}},
 		Env:          []string{"ENABLE_VNC=false", "SCREEN_RESOLUTION=640x480x0", "a=bb", "b=c", "c=d=f", "d=g", "e=f"},
 		Image:        "apple/safari:test-1",
 		Labels:       map[string]string{"main": "val", "k1": "v1", "k2": "v2"},
 	}
 
-	expPortBindings = nat.PortMap{
-		"123/tcp": []nat.PortBinding{{HostIP: "", HostPort: ""}},
-		"777/tcp": []nat.PortBinding{{HostIP: "", HostPort: ""}},
+	expPortBindings = network.PortMap{
+		network.MustParsePort("123/tcp"): []network.PortBinding{{HostIP: netip.IPv4Unspecified(), HostPort: ""}},
+		network.MustParsePort("777/tcp"): []network.PortBinding{{HostIP: netip.IPv4Unspecified(), HostPort: ""}},
 	}
 
 	expNetworkingConfig = &network.NetworkingConfig{}
@@ -200,68 +200,67 @@ var (
 	}
 
 	inspectRespNoPortMap = container.InspectResponse{
-		ContainerJSONBase: &container.ContainerJSONBase{
-			ID:    testContainerID,
-			State: &container.State{Running: true},
+		ID: testContainerID,
+		State: &container.State{
+			Running: true,
 		},
 		NetworkSettings: &container.NetworkSettings{
-			NetworkSettingsBase:    container.NetworkSettingsBase{},
-			DefaultNetworkSettings: container.DefaultNetworkSettings{},
+			Ports: network.PortMap{},
 			Networks: map[string]*network.EndpointSettings{
 				testNet: {
-					IPAddress: "4.5.6.7",
+					IPAddress: netip.MustParseAddr("4.5.6.7"),
 				},
 			},
 		},
 	}
 
 	inspectRespPartialPortMap = container.InspectResponse{
-		ContainerJSONBase: &container.ContainerJSONBase{
-			ID:    testContainerID,
-			State: &container.State{Running: true},
+		ID: testContainerID,
+		State: &container.State{
+			Running: true,
 		},
 		NetworkSettings: &container.NetworkSettings{
-			NetworkSettingsBase: container.NetworkSettingsBase{
-				Ports: nat.PortMap{
-					"123/tcp": []nat.PortBinding{
-						{
-							HostIP:   "0.0.0.0",
-							HostPort: "787/tcp",
-						},
+			Ports: network.PortMap{
+				network.MustParsePort("123/tcp"): []network.PortBinding{
+					{
+						HostIP:   netip.IPv4Unspecified(),
+						HostPort: "787",
 					},
-					"777/tcp": []nat.PortBinding{},
 				},
+				network.MustParsePort("777/tcp"): []network.PortBinding{},
 			},
-			DefaultNetworkSettings: container.DefaultNetworkSettings{
-				IPAddress: "4.5.6.7",
+			Networks: map[string]*network.EndpointSettings{
+				testNet: {
+					IPAddress: netip.MustParseAddr("4.5.6.7"),
+				},
 			},
 		},
 	}
 
 	inspectRespPortMap = container.InspectResponse{
-		ContainerJSONBase: &container.ContainerJSONBase{
-			ID:    testContainerID,
-			State: &container.State{Running: true},
+		ID: testContainerID,
+		State: &container.State{
+			Running: true,
 		},
 		NetworkSettings: &container.NetworkSettings{
-			NetworkSettingsBase: container.NetworkSettingsBase{
-				Ports: nat.PortMap{
-					"123/tcp": []nat.PortBinding{
-						{
-							HostIP:   "0.0.0.0",
-							HostPort: "787/tcp",
-						},
+			Ports: network.PortMap{
+				network.MustParsePort("123/tcp"): []network.PortBinding{
+					{
+						HostIP:   netip.IPv4Unspecified(),
+						HostPort: "787",
 					},
-					"777/tcp": []nat.PortBinding{
-						{
-							HostIP:   "0.0.0.0",
-							HostPort: "999",
-						},
+				},
+				network.MustParsePort("777/tcp"): []network.PortBinding{
+					{
+						HostIP:   netip.IPv4Unspecified(),
+						HostPort: "999",
 					},
 				},
 			},
-			DefaultNetworkSettings: container.DefaultNetworkSettings{
-				IPAddress: "4.5.6.7",
+			Networks: map[string]*network.EndpointSettings{
+				testNet: {
+					IPAddress: netip.MustParseAddr("4.5.6.7"),
+				},
 			},
 		},
 	}
@@ -322,10 +321,10 @@ var (
 			NetworkSettings: &container.NetworkSettingsSummary{
 				Networks: map[string]*network.EndpointSettings{
 					"some": {
-						IPAddress: "1.2.3.4",
+						IPAddress: netip.MustParseAddr("1.2.3.4"),
 					},
 					testNet: {
-						IPAddress: "4.3.2.1",
+						IPAddress: netip.MustParseAddr("4.3.2.1"),
 					},
 				},
 			},
@@ -386,18 +385,16 @@ func TestKubernetesBrowserManager_Allocate_DirectConnection(t *testing.T) {
 
 var (
 	inspectRespNotRunning = container.InspectResponse{
-		ContainerJSONBase: &container.ContainerJSONBase{
-			ID:    testContainerID,
-			State: &container.State{Running: false},
+		ID: testContainerID,
+		State: &container.State{
+			Running: false,
 		},
 		NetworkSettings: &container.NetworkSettings{
-			NetworkSettingsBase: container.NetworkSettingsBase{
-				Ports: nat.PortMap{
-					"123/tcp": []nat.PortBinding{
-						{
-							HostIP:   "0.0.0.0",
-							HostPort: "787/tcp",
-						},
+			Ports: network.PortMap{
+				network.MustParsePort("123/tcp"): []network.PortBinding{
+					{
+						HostIP:   netip.IPv4Unspecified(),
+						HostPort: "787",
 					},
 				},
 			},
@@ -405,37 +402,34 @@ var (
 	}
 
 	inspectRespNoNetwork = container.InspectResponse{
-		ContainerJSONBase: &container.ContainerJSONBase{
-			ID:    testContainerID,
-			State: &container.State{Running: true},
+		ID: testContainerID,
+		State: &container.State{
+			Running: true,
 		},
 		NetworkSettings: &container.NetworkSettings{
-			NetworkSettingsBase: container.NetworkSettingsBase{
-				Ports: nat.PortMap{
-					"123/tcp": []nat.PortBinding{
-						{
-							HostIP:   "0.0.0.0",
-							HostPort: "787/tcp",
-						},
+			Ports: network.PortMap{
+				network.MustParsePort("123/tcp"): []network.PortBinding{
+					{
+						HostIP:   netip.IPv4Unspecified(),
+						HostPort: "787",
 					},
 				},
 			},
+			Networks: map[string]*network.EndpointSettings{},
 		},
 	}
 
 	inspectRespNoIP = container.InspectResponse{
-		ContainerJSONBase: &container.ContainerJSONBase{
-			ID:    testContainerID,
-			State: &container.State{Running: true},
+		ID: testContainerID,
+		State: &container.State{
+			Running: true,
 		},
 		NetworkSettings: &container.NetworkSettings{
-			NetworkSettingsBase: container.NetworkSettingsBase{
-				Ports: nat.PortMap{
-					"123/tcp": []nat.PortBinding{
-						{
-							HostIP:   "0.0.0.0",
-							HostPort: "787/tcp",
-						},
+			Ports: network.PortMap{
+				network.MustParsePort("123/tcp"): []network.PortBinding{
+					{
+						HostIP:   netip.IPv4Unspecified(),
+						HostPort: "787",
 					},
 				},
 			},
@@ -446,24 +440,22 @@ var (
 	}
 
 	inspectRespNoMappedPort = container.InspectResponse{
-		ContainerJSONBase: &container.ContainerJSONBase{
-			ID:    testContainerID,
-			State: &container.State{Running: true},
+		ID: testContainerID,
+		State: &container.State{
+			Running: true,
 		},
 		NetworkSettings: &container.NetworkSettings{
-			NetworkSettingsBase: container.NetworkSettingsBase{
-				Ports: nat.PortMap{
-					"123/tcp": []nat.PortBinding{
-						{
-							HostIP:   "0.0.0.0",
-							HostPort: "787/tcp",
-						},
+			Ports: network.PortMap{
+				network.MustParsePort("123/tcp"): []network.PortBinding{
+					{
+						HostIP:   netip.IPv4Unspecified(),
+						HostPort: "787",
 					},
 				},
 			},
 			Networks: map[string]*network.EndpointSettings{
 				testNet: {
-					IPAddress: "1.1.1.1",
+					IPAddress: netip.MustParseAddr("1.1.1.1"),
 				},
 			},
 		},
@@ -676,7 +668,7 @@ func createCaps(name, version, flavor string, vncEnabled bool) *mocks.Capabiliti
 	return caps
 }
 
-func getExpHostConfig(portBindings nat.PortMap) *container.HostConfig {
+func getExpHostConfig(portBindings network.PortMap) *container.HostConfig {
 	hosts := []string{"aaa:1.2.3.4", "bbb:1.2.3.4"}
 	if runtime.GOOS == "linux" {
 		// this will happen on CI

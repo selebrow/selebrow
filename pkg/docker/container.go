@@ -3,8 +3,9 @@ package docker
 import (
 	"context"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -20,27 +21,51 @@ func (c *DockerClientImpl) ContainerCreate(
 		Architecture: c.arch,
 		OS:           c.platform,
 	}
-	return c.dockerCli.ContainerCreate(ctx, config, hostConfig, networkingConfig, platform, containerName)
+	res, err := c.dockerCli.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:           config,
+		HostConfig:       hostConfig,
+		NetworkingConfig: networkingConfig,
+		Platform:         platform,
+		Name:             containerName,
+	})
+	if err != nil {
+		return container.CreateResponse{}, err
+	}
+
+	return container.CreateResponse{
+		ID:       res.ID,
+		Warnings: res.Warnings,
+	}, nil
 }
 
 // ContainerStart Start container with default options
 func (c *DockerClientImpl) ContainerStart(ctx context.Context, containerID string) error {
-	return c.dockerCli.ContainerStart(ctx, containerID, container.StartOptions{})
+	_, err := c.dockerCli.ContainerStart(ctx, containerID, client.ContainerStartOptions{})
+	return err
 }
 
 // ContainerInspect Inspect container (API call as is)
 func (c *DockerClientImpl) ContainerInspect(ctx context.Context, containerID string) (container.InspectResponse, error) {
-	return c.dockerCli.ContainerInspect(ctx, containerID)
+	res, err := c.dockerCli.ContainerInspect(ctx, containerID, client.ContainerInspectOptions{})
+	if err != nil {
+		return container.InspectResponse{}, err
+	}
+	return res.Container, nil
 }
 
 // ContainerRemove Remove container with optional force flag
 func (c *DockerClientImpl) ContainerRemove(ctx context.Context, containerID string, force bool) error {
-	return c.dockerCli.ContainerRemove(ctx, containerID, container.RemoveOptions{
+	_, err := c.dockerCli.ContainerRemove(ctx, containerID, client.ContainerRemoveOptions{
 		Force: force,
 	})
+	return err
 }
 
 // ContainerList List all running containers
 func (c *DockerClientImpl) ContainerList(ctx context.Context) ([]container.Summary, error) {
-	return c.dockerCli.ContainerList(ctx, container.ListOptions{})
+	res, err := c.dockerCli.ContainerList(ctx, client.ContainerListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return res.Items, nil
 }

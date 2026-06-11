@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/docker/cli/cli/config/configfile"
-	"github.com/docker/docker/api/types/container"
-	imagetypes "github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/api/types/container"
+	imagetypes "github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 )
 
 const (
@@ -75,11 +75,11 @@ func (c *DockerClientImpl) GetHost() string {
 }
 
 func (c *DockerClientImpl) AvailableResources(ctx context.Context) (cpus int, memory int64, err error) {
-	info, err := c.dockerCli.Info(ctx)
+	info, err := c.dockerCli.Info(ctx, client.InfoOptions{})
 	if err != nil {
-		return
+		return 0, 0, err
 	}
-	return info.NCPU, info.MemTotal, nil
+	return info.Info.NCPU, info.Info.MemTotal, nil
 }
 
 func getHostOnly(hostPort string) string {
