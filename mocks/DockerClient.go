@@ -7,9 +7,9 @@ package mocks
 import (
 	"context"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/api/types/network"
 	mock "github.com/stretchr/testify/mock"
 )
 

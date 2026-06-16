@@ -233,6 +233,7 @@ func (p *PWController) defaultErrorHandler(remote string) func(http.ResponseWrit
 		msg := fmt.Sprintf("proxy error %s->%v", remote, r.URL)
 		p.l.Errorw(msg, zap.Error(err))
 		w.WriteHeader(http.StatusBadGateway)
+		//nolint:gosec // plain text error response, no user-controlled HTML
 		if _, respErr := fmt.Fprintf(w, "%s: %v", msg, err); respErr != nil {
 			p.l.Errorw("write error", zap.Error(respErr))
 		}

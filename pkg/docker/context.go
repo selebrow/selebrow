@@ -7,7 +7,7 @@ import (
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/context/docker"
 	"github.com/docker/cli/cli/context/store"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 )
 
 // Below code is based on docker/cli context implementation

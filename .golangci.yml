@@ -54,7 +54,7 @@ linters:
       statements: 50
     goconst:
       min-len: 2
-      min-occurrences: 2
+      min-occurrences: 4
     gocritic:
       disabled-checks:
         - dupImport

@@ -46,9 +46,9 @@ jobs:
           fetch-depth: 0
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.23'
+          go-version: '1.26'
 
       - name: Build Binary
         env:

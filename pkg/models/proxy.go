@@ -10,7 +10,7 @@ type (
 		HTTPProxy string    `json:"httpProxy,omitempty" jsonwire:"httpProxy,omitempty" w3c:"httpProxy,omitempty"`
 		SSLProxy  string    `json:"sslProxy,omitempty"  jsonwire:"sslProxy,omitempty"  w3c:"sslProxy,omitempty"`
 		// JsonWire - string, W3C WebDriver - array of strings
-		NoProxy any `json:"noProxy,omitempty"   jsonwire:"noProxy,omitempty"   w3c:"noProxy,omitempty"`
+		NoProxy any `json:"noProxy,omitempty" jsonwire:"noProxy,omitempty" w3c:"noProxy,omitempty"`
 	}
 )
 
