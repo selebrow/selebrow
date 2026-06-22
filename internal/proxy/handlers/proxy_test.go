@@ -68,6 +68,34 @@ func TestProxyHandler_ServeHTTP_HTTPMethod(t *testing.T) {
 	g.Expect(recorder).Should(HaveHTTPBody("OK"))
 }
 
+func TestProxyHandler_ServeHTTP_WS_Scheme(t *testing.T) {
+	g := NewWithT(t)
+
+	mockTransport := mocks.NewRoundTripper(t)
+	logger := zaptest.NewLogger(t)
+
+	handler := NewProxyHandler(mockTransport, nil, logger)
+
+	req := httptest.NewRequest(http.MethodGet, "ws://example.com/path", http.NoBody)
+	recorder := httptest.NewRecorder()
+
+	mockTransport.EXPECT().
+		RoundTrip(mock.Anything).
+		Run(func(req *http.Request) {
+			g.Expect(req.URL.String()).To(Equal("http://example.com/path"))
+		}).
+		Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("OK")),
+			Header:     http.Header{},
+		}, nil).Once()
+
+	handler.ServeHTTP(recorder, req)
+
+	g.Expect(recorder).Should(HaveHTTPStatus(http.StatusOK))
+	g.Expect(recorder).Should(HaveHTTPBody("OK"))
+}
+
 func TestProxyHandler_ServeHTTP_CONNECT_HijackNotSupported(t *testing.T) {
 	g := NewWithT(t)
 

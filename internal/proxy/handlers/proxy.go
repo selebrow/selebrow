@@ -41,6 +41,9 @@ func (p *ProxyHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reque
 	if request.Method == http.MethodConnect {
 		p.handleConnect(writer, request, start, logger)
 	} else {
+		if request.URL.Scheme == "ws" {
+			request.URL.Scheme = "http" // fix for webkit incorrect websocket proxy tunneling
+		}
 		p.handleHTTP(writer, request, start, logger)
 	}
 }
