@@ -81,7 +81,7 @@ helm-lint:
 # download golangci-lint if necessary
 golangci-lint:
 ifeq (, $(shell which golangci-lint))
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 GOLANGCI-LINT=$(GOPATH)/bin/golangci-lint
 else
 GOLANGCI-LINT=$(shell which golangci-lint)
