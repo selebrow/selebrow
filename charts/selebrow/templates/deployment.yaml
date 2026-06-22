@@ -100,10 +100,10 @@ spec:
             - name: SB_NO_PROXY
               value: {{ . | quote }}
           {{- end }}
-          {{- with .Values.resources }}
           {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
